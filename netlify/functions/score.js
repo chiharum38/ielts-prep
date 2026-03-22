@@ -1,59 +1,40 @@
-// Netlify serverless function — proxies requests to Anthropic API
-// Runs server-side so CORS is not an issue
-exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      },
-      body: '',
-    };
-  }
+const Anthropic = require("@anthropic-ai/sdk");
 
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+exports.handler = async (event) => {
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers: CORS, body: "" };
+  }
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, headers: CORS, body: "Method Not Allowed" };
   }
 
   try {
-    const body = JSON.parse(event.body);
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const { model, max_tokens, system, messages } = JSON.parse(event.body);
 
-    if (!apiKey) {
-      return { statusCode: 500, body: JSON.stringify({ error: 'API key not configured' }) };
-    }
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: body.model || 'claude-sonnet-4-6',
-        max_tokens: body.max_tokens || 8000,
-        system: body.system,
-        messages: body.messages,
-      }),
+    const response = await client.messages.create({
+      model: model || "claude-sonnet-4-6",
+      max_tokens: max_tokens || 8000,
+      system,
+      messages,
     });
 
-    const data = await response.json();
-
     return {
-      statusCode: response.status,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify(data),
+      statusCode: 200,
+      headers: { "Content-Type": "application/json", ...CORS },
+      body: JSON.stringify(response),
     };
   } catch (err) {
     return {
       statusCode: 500,
-      headers: { 'Access-Control-Allow-Origin': '*' },
+      headers: { "Content-Type": "application/json", ...CORS },
       body: JSON.stringify({ error: err.message }),
     };
   }
