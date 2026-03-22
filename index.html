@@ -4061,7 +4061,7 @@ Be accurate and fair. Reference actual essay content. Do not inflate, but do not
     const text = await callClaude({
       system: systemPrompt,
       userMsg: `Prompt: ${currentExamPrompt?.text||''}\n${task==='task1' ? '\n[Note: The student was shown a visual chart/diagram/table matching this prompt during the exam.]\n' : ''}Essay:\n${essay}`,
-      maxTokens: 4000,
+      maxTokens: 8000,
     });
     const result = JSON.parse(text.replace(/```json|```/g,'').trim());
     setLoading('writing', false);
@@ -4154,7 +4154,7 @@ Be accurate and fair. Score what you see against the descriptors. Do not deflate
     const text = await callClaude({
       system: systemPrompt,
       userMsg: `${prompt?'Question: '+prompt+'\n\n':''}Essay:\n${essay}`,
-      maxTokens: 4000,
+      maxTokens: 8000,
     });
     const result = JSON.parse(text.replace(/```json|```/g,'').trim());
     setLoading('check', false);
@@ -4893,7 +4893,7 @@ Be honest, strict, and evidence-based. Reference actual transcript content. Neve
   const userMsg = `Part ${part} Question: ${prompt}\n\nRecording duration: approximately ${Math.floor(timerSecs/60)}m ${timerSecs%60}s\nWord count: ~${wordCount} words\n\nTranscript:\n${transcript}`;
 
   try {
-    const text = await callClaude({ system: systemPrompt, userMsg, maxTokens: 4000 });
+    const text = await callClaude({ system: systemPrompt, userMsg, maxTokens: 8000 });
     const result = JSON.parse(text.replace(/```json|```/g,'').trim());
     setLoading('speaking', false);
     renderSpeakingResult(result, part);
