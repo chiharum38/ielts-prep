@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+  <!-- Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Scholarly Architect — IELTS Preparation</title>
@@ -1748,6 +1750,44 @@ footer strong { color: var(--primary); }
 </style>
 </head>
 <body>
+
+
+<!-- ════ LOGIN SCREEN ════ -->
+<div id="auth-screen" style="display:none;position:fixed;inset:0;background:var(--surface-low,#f0f3ff);z-index:10000;display:flex;align-items:center;justify-content:center;font-family:'Public Sans',sans-serif;">
+  <div style="background:white;border-radius:1rem;padding:2.5rem 2rem;max-width:400px;width:90%;box-shadow:0 8px 40px rgba(0,52,97,0.12);">
+    <div style="text-align:center;margin-bottom:1.8rem;">
+      <div style="font-family:'Newsreader',serif;font-size:1.6rem;font-weight:700;color:#003461;">Scholarly Architect</div>
+      <div style="font-size:0.8rem;color:#57657a;margin-top:4px;text-transform:uppercase;letter-spacing:0.8px;">IELTS Preparation</div>
+    </div>
+
+    <div id="auth-tabs" style="display:flex;gap:0;margin-bottom:1.5rem;border-radius:8px;overflow:hidden;border:1px solid rgba(194,198,209,0.3);">
+      <button id="tab-login" onclick="switchAuthTab('login')" style="flex:1;padding:9px;border:none;background:#003461;color:white;font-family:'Public Sans',sans-serif;font-size:0.85rem;font-weight:600;cursor:pointer;">Sign In</button>
+      <button id="tab-signup" onclick="switchAuthTab('signup')" style="flex:1;padding:9px;border:none;background:white;color:#57657a;font-family:'Public Sans',sans-serif;font-size:0.85rem;cursor:pointer;">Create Account</button>
+    </div>
+
+    <div id="auth-error" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:9px 12px;font-size:0.82rem;color:#b91c1c;margin-bottom:1rem;"></div>
+    <div id="auth-success" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:9px 12px;font-size:0.82rem;color:#166534;margin-bottom:1rem;"></div>
+
+    <div style="margin-bottom:1rem;">
+      <div style="font-size:0.75rem;font-weight:600;color:#57657a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.4px;">Email</div>
+      <input id="auth-email" type="email" placeholder="you@example.com" style="width:100%;padding:10px 12px;border:1px solid rgba(194,198,209,0.4);border-radius:8px;font-family:'Public Sans',sans-serif;font-size:0.9rem;box-sizing:border-box;outline:none;" onfocus="this.style.borderColor='#003461'" onblur="this.style.borderColor='rgba(194,198,209,0.4)'" onkeydown="if(event.key==='Enter')handleAuth()">
+    </div>
+    <div style="margin-bottom:1.5rem;">
+      <div style="font-size:0.75rem;font-weight:600;color:#57657a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.4px;">Password</div>
+      <input id="auth-password" type="password" placeholder="••••••••" style="width:100%;padding:10px 12px;border:1px solid rgba(194,198,209,0.4);border-radius:8px;font-family:'Public Sans',sans-serif;font-size:0.9rem;box-sizing:border-box;outline:none;" onfocus="this.style.borderColor='#003461'" onblur="this.style.borderColor='rgba(194,198,209,0.4)'" onkeydown="if(event.key==='Enter')handleAuth()">
+    </div>
+
+    <button onclick="handleAuth()" id="auth-submit-btn" style="width:100%;padding:12px;background:#003461;color:white;border:none;border-radius:8px;font-family:'Public Sans',sans-serif;font-size:0.95rem;font-weight:700;cursor:pointer;transition:opacity 0.15s;">Sign In</button>
+
+    <div id="auth-forgot" style="text-align:center;margin-top:1rem;">
+      <button onclick="handleForgotPassword()" style="background:none;border:none;color:#57657a;font-size:0.8rem;cursor:pointer;text-decoration:underline;font-family:'Public Sans',sans-serif;">Forgot password?</button>
+    </div>
+
+    <div style="text-align:center;margin-top:1.4rem;padding-top:1rem;border-top:1px solid rgba(194,198,209,0.2);font-size:0.72rem;color:#57657a;">
+      Your progress is saved to your account and syncs across all devices.
+    </div>
+  </div>
+</div>
 
 <!-- NAV -->
 <nav>
@@ -6352,6 +6392,210 @@ function showVocabToast(msg) {
     toast.style.opacity = '0';
     setTimeout(() => { toast.style.display = 'none'; }, 300);
   }, 2500);
+}
+
+
+// ══════════════════════════════════════════════
+// SUPABASE — Auth + Cloud Database
+// Replace THESE TWO values after creating your project:
+// ══════════════════════════════════════════════
+const SUPABASE_URL = 'https://avtiychylawasnokrixj.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2dGl5Y2h5bGF3YXNub2tyaXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNDE4MzksImV4cCI6MjA4OTcxNzgzOX0.UDj98V57fvLIO4yf_BS0v_Kk4wra08gnkM2DLXKuy98';
+
+const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let _currentUser = null;
+
+// ── Auth Tab Switcher ──────────────────────────
+let _authMode = 'login';
+function switchAuthTab(mode) {
+  _authMode = mode;
+  document.getElementById('tab-login').style.background = mode==='login' ? '#003461' : 'white';
+  document.getElementById('tab-login').style.color = mode==='login' ? 'white' : '#57657a';
+  document.getElementById('tab-signup').style.background = mode==='signup' ? '#003461' : 'white';
+  document.getElementById('tab-signup').style.color = mode==='signup' ? 'white' : '#57657a';
+  document.getElementById('auth-submit-btn').textContent = mode==='login' ? 'Sign In' : 'Create Account';
+  document.getElementById('auth-forgot').style.display = mode==='login' ? 'block' : 'none';
+  document.getElementById('auth-error').style.display = 'none';
+  document.getElementById('auth-success').style.display = 'none';
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('auth-success').style.display = 'none';
+}
+function showAuthSuccess(msg) {
+  const el = document.getElementById('auth-success');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('auth-error').style.display = 'none';
+}
+
+async function handleAuth() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const btn = document.getElementById('auth-submit-btn');
+  if (!email || !password) { showAuthError('Please enter your email and password.'); return; }
+  btn.textContent = 'Please wait…'; btn.disabled = true;
+  try {
+    if (_authMode === 'signup') {
+      const { error } = await _sb.auth.signUp({ email, password });
+      if (error) throw error;
+      showAuthSuccess('Account created! Check your email to confirm, then sign in.');
+      switchAuthTab('login');
+    } else {
+      const { data, error } = await _sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      // onAuthStateChange will handle the rest
+    }
+  } catch(e) {
+    showAuthError(e.message || 'Something went wrong. Please try again.');
+  }
+  btn.textContent = _authMode === 'login' ? 'Sign In' : 'Create Account';
+  btn.disabled = false;
+}
+
+async function handleForgotPassword() {
+  const email = document.getElementById('auth-email').value.trim();
+  if (!email) { showAuthError('Enter your email address first.'); return; }
+  const { error } = await _sb.auth.resetPasswordForEmail(email);
+  if (error) showAuthError(error.message);
+  else showAuthSuccess('Password reset email sent! Check your inbox.');
+}
+
+async function signOut() {
+  await _sb.auth.signOut();
+  _currentUser = null;
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('user-indicator').style.display = 'none';
+  document.getElementById('auth-email').value = '';
+  document.getElementById('auth-password').value = '';
+}
+
+// ── Auth State Listener ────────────────────────
+_sb.auth.onAuthStateChange(async (event, session) => {
+  if (session?.user) {
+    _currentUser = session.user;
+    document.getElementById('auth-screen').style.display = 'none';
+    const indicator = document.getElementById('user-indicator');
+    indicator.style.display = 'flex';
+    document.getElementById('user-email-display').textContent = session.user.email.split('@')[0];
+    // Load user data into localStorage for compatibility
+    await syncFromCloud();
+    renderDashboard();
+    renderProgress();
+  } else {
+    _currentUser = null;
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('user-indicator').style.display = 'none';
+  }
+});
+
+// ── Cloud Sync ─────────────────────────────────
+async function syncFromCloud() {
+  if (!_currentUser) return;
+  try {
+    // Load history
+    const { data: hist } = await _sb.from('ielts_history').select('*').order('date', {ascending:false}).limit(50);
+    if (hist) localStorage.setItem('ielts_history', JSON.stringify(hist.map(r => ({...r, date: r.date}))));
+
+    // Load writing samples
+    const { data: ws } = await _sb.from('ielts_writing_samples').select('*').order('date', {ascending:false}).limit(30);
+    if (ws) localStorage.setItem('ielts_writing_samples', JSON.stringify(ws));
+
+    // Load speaking samples
+    const { data: ss } = await _sb.from('ielts_speaking_samples').select('*').order('date', {ascending:false}).limit(30);
+    if (ss) localStorage.setItem('ielts_speaking_samples', JSON.stringify(ss));
+
+    // Load vocab
+    const { data: vocab } = await _sb.from('ielts_vocab').select('*').order('date', {ascending:false}).limit(500);
+    if (vocab) localStorage.setItem('ielts_vocab', JSON.stringify(vocab));
+  } catch(e) {
+    console.warn('Cloud sync failed, using local data:', e.message);
+  }
+}
+
+// ── Override saveToHistory to also save to cloud ──
+const _origSaveToHistory = saveToHistory;
+function saveToHistory(entry) {
+  _origSaveToHistory(entry); // keep localStorage working
+  if (_currentUser) {
+    _sb.from('ielts_history').insert({
+      user_id: _currentUser.id,
+      type: entry.type,
+      band: entry.band,
+      prompt: entry.prompt,
+      date: entry.date || new Date().toISOString()
+    }).then(({error}) => { if(error) console.warn('History save error:', error.message); });
+  }
+}
+
+// ── Override saveWritingSample ──
+const _origSaveWritingSample = saveWritingSample;
+function saveWritingSample(sample) {
+  _origSaveWritingSample(sample);
+  if (_currentUser) {
+    _sb.from('ielts_writing_samples').insert({
+      user_id: _currentUser.id,
+      ...sample,
+      id: undefined // let Supabase generate UUID
+    }).then(({error}) => { if(error) console.warn('Writing sample save error:', error.message); });
+  }
+}
+
+// ── Override saveSpeakingSample ──
+const _origSaveSpeakingSample = saveSpeakingSample;
+function saveSpeakingSample(sample) {
+  _origSaveSpeakingSample(sample);
+  if (_currentUser) {
+    _sb.from('ielts_speaking_samples').insert({
+      user_id: _currentUser.id,
+      ...sample,
+      id: undefined
+    }).then(({error}) => { if(error) console.warn('Speaking sample save error:', error.message); });
+  }
+}
+
+// ── Override saveVocab for cloud sync ──
+const _origSaveVocab = saveVocab;
+function saveVocab(list) {
+  _origSaveVocab(list);
+  // Sync vocab changes to cloud asynchronously
+  if (_currentUser) {
+    syncVocabToCloud(list);
+  }
+}
+
+async function syncVocabToCloud(list) {
+  if (!_currentUser) return;
+  try {
+    // Delete all existing vocab for user and re-insert
+    await _sb.from('ielts_vocab').delete().eq('user_id', _currentUser.id);
+    if (list.length > 0) {
+      const rows = list.map(v => ({ ...v, user_id: _currentUser.id, id: undefined }));
+      await _sb.from('ielts_vocab').insert(rows);
+    }
+  } catch(e) {
+    console.warn('Vocab sync error:', e.message);
+  }
+}
+
+// ── Delete overrides for cloud ──
+const _origDeleteWritingSample = deleteWritingSample;
+function deleteWritingSample(id) {
+  _origDeleteWritingSample(id);
+  if (_currentUser) {
+    _sb.from('ielts_writing_samples').delete().eq('user_id', _currentUser.id).eq('id', id)
+      .then(({error}) => { if(error) console.warn('Delete error:', error.message); });
+  }
+}
+
+const _origDeleteSpeakingSample = deleteSpeakingSample;
+function deleteSpeakingSample(id) {
+  _origDeleteSpeakingSample(id);
+  if (_currentUser) {
+    _sb.from('ielts_speaking_samples').delete().eq('user_id', _currentUser.id).eq('id', id)
+      .then(({error}) => { if(error) console.warn('Delete error:', error.message); });
+  }
 }
 
 // ── INIT ──────────────────────────────────────
