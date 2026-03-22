@@ -2211,9 +2211,9 @@ footer strong { color: var(--primary); }
     <div class="full-test-panel" id="full-test-panel">
       <div id="full-test-content"></div>
       <div class="full-test-actions">
-        <button class="full-test-practise-btn" onclick="loadNextFullTest()">🔀 New Test</button>
-        <button class="full-test-practise-btn secondary" onclick="generateAiSpeakingTest()">✦ AI Generate Test</button>
-        <button class="full-test-practise-btn secondary" onclick="exitFullTestMode()">← Back to Practice</button>
+        <button class="full-test-practice-btn" onclick="loadNextFullTest()">🔀 New Test</button>
+        <button class="full-test-practice-btn secondary" onclick="generateAiSpeakingTest()">✦ AI Generate Test</button>
+        <button class="full-test-practice-btn secondary" onclick="exitFullTestMode()">← Back to Practice</button>
       </div>
       <div id="full-test-ai-status"></div>
     </div>
@@ -2518,7 +2518,7 @@ footer strong { color: var(--primary); }
     <button class="chatbot-quick-btn" onclick="chatQuickAction('Give me synonyms for:')">💬 Synonyms</button>
     <button class="chatbot-quick-btn" onclick="chatQuickAction('Help me paraphrase:')">✏️ Paraphrase</button>
     <button class="chatbot-quick-btn" onclick="chatQuickAction('Give me ideas for:')">💡 Ideas</button>
-    <button class="chatbot-quick-btn" onclick="chatQuickAction('I found a bug:')">🐛 Report bug</button>
+
     <button class="chatbot-quick-btn" onclick="chatQuickAction('Save this word to my vocab:')">💾 Save word</button>
   </div>
   <div class="chatbot-input-row">
@@ -4159,6 +4159,7 @@ Be accurate and fair. Score what you see against the descriptors. Do not deflate
     renderWritingResult(result, 'check-result', 'check-result-band', 'check-result-criteria', 'check-result-feedback');
     saveToHistory({ type: taskType==='task1'?'Writing Task 1':'Writing Task 2', band: result.overall, prompt: prompt||essay.substring(0,80)+'…' });
     saveWritingSample({
+      id: Date.now(),
       type: taskType==='task1'?'Writing Task 1':'Writing Task 2',
       band: result.overall,
       prompt: prompt || '',
@@ -4172,6 +4173,7 @@ Be accurate and fair. Score what you see against the descriptors. Do not deflate
       phrase_fixes: result.phrase_fixes || [],
       upgrade_half_band: result.upgrade_half_band || [],
       upgrade_one_band: result.upgrade_one_band || [],
+      date: new Date().toISOString(),
     });
   } catch(e) {
     setLoading('check', false);
@@ -4403,7 +4405,7 @@ function renderFullTest(test) {
   const p1Topics = (test.part1.topics || []).map((topic, ti) => `
     <div class="full-test-topic-name">${topic.name}</div>
     ${topic.questions.map((q, qi) => `
-      <div class="full-test-q" onclick="loadFullTestQuestion(this)" title="Click to practise this question" style="cursor:pointer;">
+      <div class="full-test-q" onclick="loadFullTestQuestion(this)" title="Click to practice this question" style="cursor:pointer;">
         <div class="full-test-q-num">${qi + 1}</div>
         <div class="full-test-q-text">${q}</div>
       </div>`).join('')}
@@ -4420,7 +4422,7 @@ function renderFullTest(test) {
 
   // Part 3 HTML
   const p3Questions = (test.part3.questions || []).map((q, i) => `
-    <div class="full-test-q" onclick="loadFullTestQuestion(this)" title="Click to practise this question" style="cursor:pointer;">
+    <div class="full-test-q" onclick="loadFullTestQuestion(this)" title="Click to practice this question" style="cursor:pointer;">
       <div class="full-test-q-num" style="background:#f3e8ff;color:#6d28d9;">${i + 1}</div>
       <div class="full-test-q-text">${q}</div>
     </div>`).join('');
@@ -4470,7 +4472,7 @@ function renderFullTest(test) {
           <ul class="full-test-cuecard-bullets">${bulletItems}</ul>
           <div class="full-test-cuecard-prompt">⏱ ${p2.prompt}</div>
         </div>
-        <button class="full-test-practise-btn" style="margin:8px 0;font-size:0.78rem;" onclick="startPrepTimer()">⏱ Start 1-min Prep Timer</button>
+        <button class="full-test-practice-btn" style="margin:8px 0;font-size:0.78rem;" onclick="startPrepTimer()">⏱ Start 1-min Prep Timer</button>
         <div class="prep-timer-wrap" id="prep-timer-wrap">
           <div class="prep-timer-countdown" id="prep-timer-countdown">1:00</div>
           <div class="prep-timer-label">Preparation time remaining</div>
@@ -4500,7 +4502,7 @@ function renderFullTest(test) {
     </div>
 
     <div style="margin-top:12px;padding:10px 14px;background:var(--primary-fixed);border-radius:8px;font-size:0.8rem;color:var(--primary);">
-      💡 <strong>Tip:</strong> Use the recorder below to practise each question. For Part 1, record one answer at a time. For Part 2, practise your full cue card response.
+      💡 <strong>Tip:</strong> Use the recorder below to practice each question. For Part 1, record one answer at a time. For Part 2, practice your full cue card response.
     </div>
   `;
 }
@@ -4543,7 +4545,7 @@ function startPrepTimer() {
 
 async function generateAiSpeakingTest() {
   const statusEl = document.getElementById('full-test-ai-status');
-  const btn = document.querySelector('.full-test-practise-btn[onclick="generateAiSpeakingTest()"]');
+  const btn = document.querySelector('.full-test-practice-btn[onclick="generateAiSpeakingTest()"]');
   if (btn) { btn.disabled = true; btn.textContent = '⟳ Generating…'; }
   if (statusEl) statusEl.innerHTML = '<div class="ft-generating"><div class="ft-generating-dot"></div>Generating a fresh IELTS speaking test with AI…</div>';
 
@@ -6066,7 +6068,7 @@ async function callClaude({ system, userMsg, maxTokens = 1000 }) {
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: maxTokens,
       system,
       messages: [{ role: 'user', content: userMsg }],
@@ -6230,7 +6232,7 @@ NUANCE DETECTOR:
 Trigger: User reports a bug, UI issue, layout problem, missing feature, or gives app feedback.
 
 RESPOND WITH:
-🐛 Bug Detection — Root cause (likely), Suggested fix (developer-friendly), Priority: High/Medium/Low
+
 💡 UX Improvement — Specific, actionable, not generic
 🧠 Product Thinking — Think like a product designer + engineer together
 
@@ -6400,7 +6402,7 @@ function showVocabToast(msg) {
 // Replace THESE TWO values after creating your project:
 // ══════════════════════════════════════════════
 const SUPABASE_URL = 'https://avtiychylawasnokrixj.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2dGl5Y2h5bGF3YXNub2tyaXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNDE4MzksImV4cCI6MjA4OTcxNzgzOX0.UDj98V57fvLIO4yf_BS0v_Kk4wra08gnkM2DLXKuy98';
+const SUPABASE_ANON_KEY = 'sb_publishable_enQ34mxxnCwfNo4TyXz3fg_yGWpH6O2';
 
 const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let _currentUser = null;
