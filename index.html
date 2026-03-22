@@ -1,4 +1,10 @@
-<!DOCTYPE html>
+const systemPrompt = `IELTS Speaking examiner. Score the Part ${part} response below.
+Return ONLY valid JSON — no markdown, no extra text:
+{"overall":6.5,"fluency":6.5,"vocabulary":6.0,"grammar":7.0,"pronunciation":6.5,"fluency_label":"Fluency & Coherence","vocab_label":"Lexical Resource","grammar_label":"Grammatical Range & Accuracy","pronunciation_label":"Pronunciation","band_justification":"One sentence: main limiting factor","fluency_descriptor":"One sentence on fluency performance","fluency_why_not_higher":"What is missing for next band","vocab_descriptor":"One sentence on vocabulary","vocab_why_not_higher":"What is missing","grammar_descriptor":"One sentence on grammar","grammar_why_not_higher":"What is missing","pronunciation_descriptor":"One sentence on pronunciation","pronunciation_why_not_higher":"What is missing","strengths":["strength 1","strength 2","strength 3"],"priority_improvements":["improvement 1","improvement 2","improvement 3"],"phrase_fixes":[{"original":"phrase used","improved":"better version","reason":"why"},{"original":"phrase 2","improved":"better 2","reason":"why"}],"upgrade_half_band":["action for +0.5","action 2"],"upgrade_one_band":["action for +1.0","action 2"],"overall_comment":"2-3 sentences of examiner commentary."}
+IELTS band calibration: 6=adequate, 6.5=good attempt, 7=competent, 7.5=strong, 8=excellent.`;const systemPrompt = `IELTS examiner. Score the ${taskName} essay below.
+Return ONLY valid JSON — no markdown, no extra text:
+{"overall":6.5,"${criteriaKey}":6.5,"cc":7.0,"lr":6.0,"gra":6.5,"ta_label":"${criteriaName}","cc_label":"Coherence & Cohesion","lr_label":"Lexical Resource","gra_label":"Grammatical Range & Accuracy","band_justification":"One sentence: main limiting factor","ta_descriptor":"One sentence on student performance for ${criteriaName}","ta_why_not_higher":"One sentence: what is missing for next band","cc_descriptor":"One sentence on CC","cc_why_not_higher":"One sentence: what is missing","lr_descriptor":"One sentence on LR","lr_why_not_higher":"One sentence: what is missing","gra_descriptor":"One sentence on GRA","gra_why_not_higher":"One sentence: what is missing","strengths":["strength 1","strength 2","strength 3"],"priority_improvements":["improvement 1","improvement 2","improvement 3"],"phrase_fixes":[{"original":"phrase from essay","improved":"better version","reason":"why"},{"original":"phrase 2","improved":"better 2","reason":"why"},{"original":"phrase 3","improved":"better 3","reason":"why"}],"upgrade_half_band":["action for +0.5","action 2"],"upgrade_one_band":["action for +1.0","action 2"],"overall_comment":"2-3 sentences of examiner commentary."}
+IELTS band calibration: 6=adequate, 6.5=good attempt, 7=competent, 7.5=strong, 8=excellent. Be accurate not generous.`;<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -4033,29 +4039,10 @@ BAND 7→8 GAP: TR — surface generalisations vs. nuanced analysis (acknowledgi
   const criteriaKey = isT1 ? 'ta' : 'tr';
   const criteriaName = isT1 ? 'Task Achievement' : 'Task Response';
 
-  const systemPrompt = `You are a calibrated IELTS examiner and writing coach certified by British Council/IDP/Cambridge.
-
-Your job: (1) score all four criteria accurately, (2) explain each score with evidence from the essay, (3) explain why it did NOT reach the next higher band, (4) give 3 concrete phrase-level fixes, (5) give band upgrade advice.
-
-${isT1 ? t1Descriptors : t2Descriptors}
-
-CALIBRATION RULES — follow exactly:
-• Band 6 pattern: Ideas are clear but simple/generic, examples are obvious, vocab is repetitive or basic, linking is mechanical ("On the one hand..."), grammar is mostly correct but simple. Score 6–6.5.
-• Band 7 pattern: Ideas are clear AND supported with relevant examples, vocab shows some range (topic-specific terms used accurately), grammar mixes complex and simple structures, cohesion is logical (though slightly formulaic). Score 7–7.5. Do NOT downgrade to 6 if the essay is clear and supported.
-• Band 8 pattern: Ideas are nuanced (acknowledges limitations, conditions, exceptions, or structural inequalities), vocab is precise with less common terms used naturally, cohesion is seamless, grammar is flexible with frequent complex structures. Score 8–8.5.
-• Grammar reality rule: If errors are noticeable but do NOT affect clarity, do not score below 7 for GRA.
-• Idea depth rule: If the argument includes limitations, conditions, or exceptions (e.g. "this assumes equal access..."), boost TR toward Band 8.
-• Vocabulary calibration: If topic-specific vocabulary is present AND some advanced terms appear with only occasional repetition, score LR 7–7.5, not 6.
-• Cohesion rule: If transitions are used throughout (First, Furthermore, In conclusion) but the essay is still logical and easy to follow, score CC 6.5–7, not lower.
-• DO NOT use "near-native" as the threshold for Band 7. Band 7 is achievable by strong non-native writers with clear ideas, some range, and mostly accurate grammar.
-• Overall = arithmetic mean of 4 criteria, rounded to nearest 0.5.
-
-FEEDBACK RULES: Quote exact phrases from the essay. Every weakness must include: what the issue is, where it appears, why it affects the band, what to do, and a stronger example. "Why not higher" must name the exact missing feature for the next band.
-
-Respond ONLY with this exact JSON — no markdown, no preamble:
-{"overall":6.5,"${criteriaKey}":6.5,"cc":7.0,"lr":6.0,"gra":6.5,"ta_label":"${criteriaName}","cc_label":"Coherence & Cohesion","lr_label":"Lexical Resource","gra_label":"Grammatical Range & Accuracy","band_justification":"One precise sentence naming the primary limiting factor","ta_descriptor":"One sentence describing what the student DID at their band level for ${criteriaName}, citing evidence","ta_why_not_higher":"Exact missing feature for the next band with evidence","cc_descriptor":"One sentence for CC with evidence","cc_why_not_higher":"Exact missing feature for next CC band","lr_descriptor":"One sentence for LR with evidence","lr_why_not_higher":"Exact missing feature for next LR band","gra_descriptor":"One sentence for GRA with evidence","gra_why_not_higher":"Exact missing feature for next GRA band","strengths":["specific strength citing actual phrase 1","specific strength 2","specific strength 3"],"priority_improvements":["highest-impact improvement with before/after example","improvement 2","improvement 3"],"phrase_fixes":[{"original":"exact phrase from essay","improved":"better version","reason":"why this is better"},{"original":"exact phrase 2","improved":"better 2","reason":"why"},{"original":"exact phrase 3","improved":"better 3","reason":"why"}],"upgrade_half_band":["specific action to gain +0.5 band","action 2"],"upgrade_one_band":["specific action to gain +1.0 band","action 2"],"overall_comment":"2–3 sentences of examiner-style commentary referencing specific features of THIS response."}
-
-Be accurate and fair. Reference actual essay content. Do not inflate, but do not deflate — score what you see against the descriptors above.`;
+  const systemPrompt = `IELTS examiner. Score this essay accurately.
+Return ONLY valid JSON (no markdown, no extra text):
+{"overall":6.5,"${criteriaKey}":6.5,"cc":7.0,"lr":6.0,"gra":6.5,"ta_label":"${criteriaName}","cc_label":"Coherence & Cohesion","lr_label":"Lexical Resource","gra_label":"Grammatical Range & Accuracy","band_justification":"One sentence naming the main limiting factor","ta_descriptor":"What the student did at their band for ${criteriaName}","ta_why_not_higher":"Exact feature missing for next band","cc_descriptor":"CC performance in one sentence","cc_why_not_higher":"What is missing for next CC band","lr_descriptor":"LR performance in one sentence","lr_why_not_higher":"What is missing for next LR band","gra_descriptor":"GRA performance in one sentence","gra_why_not_higher":"What is missing for next GRA band","strengths":["specific strength 1","specific strength 2","specific strength 3"],"priority_improvements":["improvement with example 1","improvement 2","improvement 3"],"phrase_fixes":[{"original":"exact phrase from essay","improved":"better version","reason":"why"},{"original":"phrase 2","improved":"better 2","reason":"why"},{"original":"phrase 3","improved":"better 3","reason":"why"}],"upgrade_half_band":["action for +0.5 band","action 2"],"upgrade_one_band":["action for +1.0 band","action 2"],"overall_comment":"2-3 sentences of examiner-style commentary."}
+Bands: 6=adequate, 6.5=competent, 7=good, 7.5=strong, 8=excellent. Do not inflate scores.`;
 
   try {
     const text = await callClaude({
@@ -4128,27 +4115,10 @@ GRAMMATICAL RANGE & ACCURACY: Band 9=wide range, full flexibility; Band 8=wide r
   const critKeyC = isT1c ? 'ta' : 'tr';
   const critNameC = isT1c ? 'Task Achievement' : 'Task Response';
 
-  const systemPrompt = `You are a calibrated IELTS examiner and writing coach certified by British Council/IDP/Cambridge.
-
-Your job: (1) score all four criteria accurately, (2) explain each score with evidence, (3) explain why it did NOT reach the next higher band, (4) give 3 concrete phrase-level fixes, (5) give band upgrade advice.
-
-${writingBandDescriptors}
-
-CALIBRATION RULES — apply these exactly:
-• Band 6 pattern: Ideas are clear but generic/surface-level, vocab is repetitive or basic ("health", "people", "government" repeated), examples are obvious, linking is mechanical ("On the one hand..."). Score 6–6.5.
-• Band 7 pattern: Ideas are clear AND supported with relevant examples, some topic-specific vocabulary used accurately (e.g. "implement policies", "awareness campaigns", "regulate"), grammar is mixed complex/simple, structure is logical though slightly formulaic. Score 7–7.5. If an essay meets this pattern, do NOT score it 6.
-• Band 8 pattern: Ideas are nuanced — explicitly addresses limitations, conditions, exceptions, or structural factors (e.g. "this assumes equal access to resources..."). Vocab is precise with less common terms used naturally. Cohesion is seamless, not mechanical. Score 8–8.5.
-• Grammar reality rule: Noticeable errors that do NOT affect clarity → do not score GRA below 7.
-• Idea depth rule: Any argument that acknowledges exceptions, limitations, or structural inequality → boost TR toward Band 8.
-• Vocabulary calibration: Topic-specific terms present + some advanced collocations + occasional repetition → LR 7 to 7.5, NOT 6.
-• Cohesion rule: Mechanical but logical transitions throughout → CC 6.5–7. Seamless integration → CC 7.5–8.
-• "Simple but correct" ≠ Band 8. "Complex + nuanced" = Band 8.
-• Overall = arithmetic mean of 4 criteria, rounded to nearest 0.5.
-
-Respond ONLY with this exact JSON — no markdown, no preamble:
-{"overall":6.5,"${critKeyC}":6.5,"cc":7.0,"lr":6.0,"gra":6.5,"ta_label":"${critNameC}","cc_label":"Coherence & Cohesion","lr_label":"Lexical Resource","gra_label":"Grammatical Range & Accuracy","band_justification":"One precise sentence naming the primary limiting factor","ta_descriptor":"One sentence describing what the student DID at their band level for ${critNameC}, citing evidence","ta_why_not_higher":"Exact missing feature for the next band with evidence","cc_descriptor":"One sentence for CC with evidence","cc_why_not_higher":"Exact missing feature for next CC band","lr_descriptor":"One sentence for LR with evidence","lr_why_not_higher":"Exact missing feature for next LR band","gra_descriptor":"One sentence for GRA with evidence","gra_why_not_higher":"Exact missing feature for next GRA band","strengths":["specific strength citing actual phrase 1","specific strength 2","specific strength 3"],"priority_improvements":["highest-impact improvement with before/after example","improvement 2","improvement 3"],"phrase_fixes":[{"original":"exact phrase from essay","improved":"better version","reason":"why this is better"},{"original":"exact phrase 2","improved":"better 2","reason":"why"},{"original":"exact phrase 3","improved":"better 3","reason":"why"}],"upgrade_half_band":["specific action to gain +0.5 band","action 2"],"upgrade_one_band":["specific action to gain +1.0 band","action 2"],"overall_comment":"2–3 sentences of examiner-style commentary referencing specific features of THIS response."}
-
-Be accurate and fair. Score what you see against the descriptors. Do not deflate competent writing.`;
+  const systemPrompt = `IELTS examiner. Score the ${taskName} essay below.
+Return ONLY valid JSON — no markdown, no extra text:
+{"overall":6.5,"${critKeyC}":6.5,"cc":7.0,"lr":6.0,"gra":6.5,"ta_label":"${critNameC}","cc_label":"Coherence & Cohesion","lr_label":"Lexical Resource","gra_label":"Grammatical Range & Accuracy","band_justification":"One sentence: main limiting factor","ta_descriptor":"One sentence on student performance for ${critNameC}","ta_why_not_higher":"One sentence: what is missing for next band","cc_descriptor":"One sentence on CC","cc_why_not_higher":"One sentence: what is missing","lr_descriptor":"One sentence on LR","lr_why_not_higher":"One sentence: what is missing","gra_descriptor":"One sentence on GRA","gra_why_not_higher":"One sentence: what is missing","strengths":["strength 1","strength 2","strength 3"],"priority_improvements":["improvement 1","improvement 2","improvement 3"],"phrase_fixes":[{"original":"phrase from essay","improved":"better version","reason":"why"},{"original":"phrase 2","improved":"better 2","reason":"why"},{"original":"phrase 3","improved":"better 3","reason":"why"}],"upgrade_half_band":["action for +0.5","action 2"],"upgrade_one_band":["action for +1.0","action 2"],"overall_comment":"2-3 sentences of examiner commentary."}
+IELTS band calibration: 6=adequate, 6.5=good attempt, 7=competent, 7.5=strong, 8=excellent.`;
 
   try {
     const text = await callClaude({
@@ -4589,7 +4559,7 @@ RULES:
 - Return ONLY the JSON object. No text before or after.`;
 
   try {
-    const response = await fetch('/.netlify/functions/score', {
+    const response = await fetch('/api/score', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1800, messages: [{ role: 'user', content: generatorPrompt }] })
@@ -4829,66 +4799,10 @@ async function checkSpeaking() {
     ? 'Part 2 (extended monologue, 1-2 min): assess sustained speech, topic development, discourse markers, grammar variety.'
     : 'Part 3 (abstract discussion): highest demands — expect speculation, complex structures, idiomatic vocabulary, nuanced argument.';
 
-  const systemPrompt = `You are a highly trained IELTS Speaking examiner and diagnostic speaking coach certified by British Council/IDP/Cambridge.
-
-Your job: (1) score all four criteria, (2) explain each score with evidence from the transcript, (3) explain why it did NOT reach the next higher band, (4) give concrete phrase-level rewrites, (5) give specific band upgrade advice.
-
-${partGuidance}
-
-OFFICIAL IELTS SPEAKING BAND DESCRIPTORS — MAY 2023:
-
-FLUENCY & COHERENCE (FC) — 25%:
-Band 9: Fluent, rare repetition/self-correction, hesitation content-related only, topics fully developed, cohesive features fully appropriate.
-Band 8: Fluent with only occasional repetition/correction, hesitation usually content-related, develops topics coherently and appropriately.
-Band 7: Speaks at length without noticeable effort, flexible discourse markers but some inaccurate use, coherence maintained.
-Band 6: Willing to speak at length but coherence sometimes lost through hesitation/repetition, discourse markers present but not always appropriate.
-Band 5: Maintains flow using repetition/self-correction, over-relies on discourse markers, limited connectives.
-Band 4: Cannot sustain without noticeable pauses, limited ability to link sentences.
-BAND 6→7: Longer stretches without self-correction; discourse markers used more accurately and naturally, not just "basically" and "you know".
-BAND 7→8: No language-related hesitation; topic fully developed with specific details and examples; cohesive devices seamlessly integrated.
-
-LEXICAL RESOURCE (LR) — 25%:
-Band 9: Full flexibility and precision in all topics, idiomatic language natural and accurate.
-Band 8: Wide vocabulary used with precision, uncommon/idiomatic items natural, occasional inaccuracies, effective paraphrase.
-Band 7: Range of less common and idiomatic vocabulary, generally appropriate collocation, some awkward choices.
-Band 6: Adequate for familiar topics, meaning clear but occasional inappropriate word choice, generally able to paraphrase.
-Band 5: Adequate for simple topics, limited range, noticeable word choice errors, inadequate paraphrase.
-Band 4: Limited resource, frequent inappropriacies, rarely paraphrases.
-BAND 6→7: Use topic-specific less common vocabulary (e.g. "environmentally conscious" not "care about environment"); show collocation awareness.
-BAND 7→8: Natural idiomatic expressions; flexible paraphrase; precisely chosen verbs and collocations throughout.
-
-GRAMMATICAL RANGE & ACCURACY (GRA) — 25%:
-Band 9: Full range of structures naturally, errors are 'native-speaker slips' only.
-Band 8: Wide range used flexibly and accurately, most sentences error-free, occasional non-systematic errors.
-Band 7: Range of complex structures with some flexibility, frequently error-free sentences, few persistent errors that don't impede.
-Band 6: Mix of simple and complex structures, frequent errors in complex structures but meaning clear.
-Band 5: Attempts complex structures but frequent errors cause difficulty.
-Band 4: Very limited range, frequent basic errors.
-BAND 6→7: More consistent accuracy in complex structures; fewer recurring patterns of error.
-BAND 7→8: Sustained complex structures (embedded clauses, conditionals, passive voice) with near-consistent accuracy.
-
-PRONUNCIATION (P) — 25% (assessing from transcript — evaluate naturalness, register, and expression complexity as proxies):
-Band 9: Full range of phonological features, effortless to understand.
-Band 8: Wide range of pronunciation features, only occasional lapses.
-Band 7: Generally intelligible throughout, range of features with mixed control.
-Band 6: Variable control, generally understood, occasional reduction in clarity.
-Band 5: Mispronunciation frequent, listener effort required.
-Band 4: Often difficult to understand.
-NOTE: Pronunciation is estimated from transcript naturalness. State this limitation explicitly in overall_comment.
-
-STRICT RULES:
-- Overall = arithmetic mean of 4 criteria, rounded to nearest 0.5
-- Do NOT inflate — but do not deflate either. Score what you observe against the descriptors.
-- Band 7 is achievable by a strong non-native speaker with clear extended answers, some range, and mostly accurate grammar. Do not require "near-native" for Band 7.
-- Band 8 requires: very wide range, mostly error-free, natural cohesion, effective paraphrase, and consistent accuracy in complex structures.
-- Band 8+ = near-native level across all four criteria — fluent, precise, flexible, with only occasional minor slips.
-- Reference SPECIFIC words/phrases/sentences from the transcript as evidence
-- Every "why not higher" must name the exact descriptor feature missing, with transcript evidence
-
-Respond ONLY with this exact JSON structure — no markdown, no preamble:
-{"overall":6.5,"fluency":6.5,"vocabulary":6.0,"grammar":7.0,"pronunciation":6.5,"band_justification":"One precise sentence naming the primary limiting factor for the overall band","fluency_descriptor":"One sentence describing what the student DID at their band level for FC, citing transcript evidence","fluency_why_not_higher":"Exact missing feature for the next FC band, with transcript evidence","vocabulary_descriptor":"One sentence for LR with evidence","vocabulary_why_not_higher":"Exact missing feature for next LR band","grammar_descriptor":"One sentence for GRA with evidence","grammar_why_not_higher":"Exact missing feature for next GRA band","pronunciation_descriptor":"One sentence about naturalness/register/complexity as pronunciation proxy","pronunciation_why_not_higher":"What would indicate a higher pronunciation band","strengths":["specific strength citing actual phrase 1","specific strength 2","specific strength 3"],"priority_improvements":["highest-impact improvement with before/after rewrite","improvement 2 with rewrite","improvement 3"],"phrase_fixes":[{"original":"exact phrase from transcript","improved":"better version","reason":"why this is better and which criterion it addresses"},{"original":"phrase 2","improved":"better 2","reason":"why"},{"original":"phrase 3","improved":"better 3","reason":"why"}],"upgrade_half_band":["specific action to gain +0.5 band","action 2"],"upgrade_one_band":["specific action to gain +1.0 band","action 2"],"overall_comment":"2–3 sentences of examiner-style commentary referencing specific transcript content. State that pronunciation is estimated from transcript only."}
-
-Be honest, strict, and evidence-based. Reference actual transcript content. Never give generic advice.`;
+  const systemPrompt = `IELTS Speaking examiner. Score this Part ${part} response accurately.
+Return ONLY valid JSON (no markdown, no extra text):
+{"overall":6.5,"fluency":6.5,"vocabulary":6.0,"grammar":7.0,"pronunciation":6.5,"fluency_label":"Fluency & Coherence","vocab_label":"Lexical Resource","grammar_label":"Grammatical Range & Accuracy","pronunciation_label":"Pronunciation","band_justification":"One sentence naming the main limiting factor","fluency_descriptor":"Fluency performance in one sentence","fluency_why_not_higher":"What is missing for next band","vocab_descriptor":"Vocabulary performance in one sentence","vocab_why_not_higher":"What is missing","grammar_descriptor":"Grammar performance in one sentence","grammar_why_not_higher":"What is missing","pronunciation_descriptor":"Pronunciation in one sentence","pronunciation_why_not_higher":"What is missing","strengths":["strength 1","strength 2","strength 3"],"priority_improvements":["improvement 1","improvement 2","improvement 3"],"phrase_fixes":[{"original":"phrase used","improved":"better version","reason":"why"},{"original":"phrase 2","improved":"better 2","reason":"why"}],"upgrade_half_band":["action for +0.5 band","action 2"],"upgrade_one_band":["action for +1.0 band","action 2"],"overall_comment":"2-3 sentences of examiner commentary."}
+Bands: 6=adequate, 6.5=competent, 7=good, 7.5=strong, 8=excellent.`;
 
   const userMsg = `Part ${part} Question: ${prompt}\n\nRecording duration: approximately ${Math.floor(timerSecs/60)}m ${timerSecs%60}s\nWord count: ~${wordCount} words\n\nTranscript:\n${transcript}`;
 
@@ -6097,7 +6011,7 @@ document.getElementById('api-key-input').addEventListener('keydown', e => {
 // ══════════════════════════════════════════════
 async function callClaude({ system, userMsg, maxTokens = 2000 }) {
   // Route through Netlify serverless function to avoid CORS restrictions
-  const res = await fetch('/.netlify/functions/score', {
+  const res = await fetch('/api/score', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -6289,7 +6203,7 @@ For each issue:
       ? `\n[App context: student is on the ${activeSection} section. Current question/prompt: "${currentPrompt.trim()}"]`
       : `\n[App context: student is on the ${activeSection} section.]`;
 
-    const response = await fetch('/.netlify/functions/score', {
+    const response = await fetch('/api/score', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
