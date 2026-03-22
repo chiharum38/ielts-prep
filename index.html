@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-  <script src="/_env.js" onerror="console.log('Running without env key')"></script>
   
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Scholarly Architect — IELTS Preparation</title>
@@ -1773,7 +1772,7 @@ footer strong { color: var(--primary); }
       <button class="nav-tab" data-section="vocab" onclick="showSection('vocab')">Vocabulary</button>
     </div>
   </div>
-  <button class="key-indicator" id="key-indicator" onclick="/* modal disabled */" title="API Key Settings">
+  <button class="key-indicator" id="key-indicator" onclick="/* disabled */" title="API Key Settings">
     <span class="key-dot red" id="key-dot"></span>
     <span id="key-indicator-text">Add API Key</span>
   </button>
@@ -4553,7 +4552,7 @@ RULES:
     });
     if (!response.ok) {
       const err = await response.json();
-      if (response.status === 401) { /* modal disabled */; throw new Error('API key required'); }
+      if (response.status === 401) { /* disabled */ throw new Error('API key required'); }
       throw new Error(err?.error?.message || 'API error');
     }
     const data = await response.json();
@@ -6015,7 +6014,7 @@ document.getElementById('api-key-input').addEventListener('keydown', e => {
 async function callClaude({ system, userMsg, maxTokens = 1000 }) {
   const key = getApiKey();
   if (!key || !key.startsWith('sk-ant-')) {
-    /* modal disabled */;
+    /* disabled */
     throw new Error('API key required');
   }
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -6039,7 +6038,7 @@ async function callClaude({ system, userMsg, maxTokens = 1000 }) {
       // Bad key — clear it and prompt again
       localStorage.removeItem('ielts_api_key');
       updateKeyIndicator();
-      /* modal disabled */;
+      /* disabled */
       throw new Error('Invalid API key. Please check and re-enter it.');
     }
     throw new Error(err?.error?.message || `API error ${res.status}`);
@@ -6118,7 +6117,7 @@ async function sendChatMessage() {
   const msg = input.value.trim();
   if (!msg) return;
 
-  if (!localStorage.getItem('ielts_api_key')) { localStorage.setItem('ielts_api_key', window.__IELTS_KEY__); }return; }
+  // key seeded in getApiKey()return; }
 
   input.value = '';
   input.style.height = 'auto';
@@ -6235,7 +6234,7 @@ For each issue:
 
     if (!response.ok) {
       const err = await response.json();
-      if (response.status === 401) { /* modal disabled */; throw new Error('API key required'); }
+      if (response.status === 401) { /* disabled */ throw new Error('API key required'); }
       throw new Error(err?.error?.message || 'API error');
     }
 
@@ -6365,7 +6364,7 @@ try {
   if (hero) hero.classList.add('collapsed');
 } catch(e){}
 // Show modal on first load if no key saved yet
-if (!localStorage.getItem('ielts_api_key')) { localStorage.setItem('ielts_api_key', window.__IELTS_KEY__); }
+// key seeded in getApiKey()
 </script>
 </body>
 </html>
