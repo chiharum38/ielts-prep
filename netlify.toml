@@ -1,0 +1,3 @@
+[build]
+  command = "echo \"window.__IELTS_KEY__ = '$ANTHROPIC_API_KEY';\" > _env.js"
+  publish = "."
