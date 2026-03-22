@@ -4061,6 +4061,7 @@ Be accurate and fair. Reference actual essay content. Do not inflate, but do not
     const text = await callClaude({
       system: systemPrompt,
       userMsg: `Prompt: ${currentExamPrompt?.text||''}\n${task==='task1' ? '\n[Note: The student was shown a visual chart/diagram/table matching this prompt during the exam.]\n' : ''}Essay:\n${essay}`,
+      maxTokens: 4000,
     });
     const result = JSON.parse(text.replace(/```json|```/g,'').trim());
     setLoading('writing', false);
@@ -4153,6 +4154,7 @@ Be accurate and fair. Score what you see against the descriptors. Do not deflate
     const text = await callClaude({
       system: systemPrompt,
       userMsg: `${prompt?'Question: '+prompt+'\n\n':''}Essay:\n${essay}`,
+      maxTokens: 4000,
     });
     const result = JSON.parse(text.replace(/```json|```/g,'').trim());
     setLoading('check', false);
@@ -4891,7 +4893,7 @@ Be honest, strict, and evidence-based. Reference actual transcript content. Neve
   const userMsg = `Part ${part} Question: ${prompt}\n\nRecording duration: approximately ${Math.floor(timerSecs/60)}m ${timerSecs%60}s\nWord count: ~${wordCount} words\n\nTranscript:\n${transcript}`;
 
   try {
-    const text = await callClaude({ system: systemPrompt, userMsg });
+    const text = await callClaude({ system: systemPrompt, userMsg, maxTokens: 4000 });
     const result = JSON.parse(text.replace(/```json|```/g,'').trim());
     setLoading('speaking', false);
     renderSpeakingResult(result, part);
@@ -5079,26 +5081,66 @@ function filterQuestions(filter, btn) {
 function useQuestion(id) {
   const q = questions.find(x => x.id === id);
   if (!q) return;
+
   if (q.type === 'speaking') {
     renderSpeakingPrompt(q.text);
     showSection('speaking');
-  } else {
-    // Send to Check My Essay mode
-    document.getElementById('writing-prompt').value = q.text;
-    document.getElementById('writing-essay').value = '';
-    document.getElementById('writing-wc').textContent = '0 words';
-    showSection('writing');
-    // Switch to Check My Essay mode
-    const checkBtn = document.getElementById('mode-btn-check');
-    if (checkBtn) switchWritingMode('check', checkBtn);
-    // Set the correct task type
-    const taskType = q.type === 'task1' ? 'task1' : 'task2';
-    const taskTypeEl = document.getElementById('writing-task-type');
-    if (taskTypeEl) taskTypeEl.textContent = taskType;
-    // Scroll to the essay area
-    const essayEl = document.getElementById('writing-essay');
-    if (essayEl) setTimeout(() => { essayEl.focus(); essayEl.scrollIntoView({behavior:'smooth'}); }, 200);
+    return;
   }
+
+  // Writing: go to Timed Exam mode with the correct prompt selected
+  showSection('writing');
+
+  // Switch to Timed Exam mode
+  const examBtn = document.getElementById('mode-btn-exam');
+  if (examBtn) switchWritingMode('exam', examBtn);
+
+  // Set the correct task type
+  const taskType = q.type === 'task1' ? 'task1' : 'task2';
+  currentExamTask = taskType;
+  document.getElementById('exam-task-type').textContent = taskType;
+
+  // Activate the correct task type button
+  document.querySelectorAll('.task-type-btn').forEach(b => b.classList.remove('active'));
+  const taskBtn = document.getElementById('task-type-' + taskType);
+  if (taskBtn) taskBtn.classList.add('active');
+
+  // Update start button meta text
+  const meta = document.getElementById('btn-start-meta');
+  if (meta) meta.textContent = taskType === 'task1' ? '20 min · 150+ words' : '40 min · 250+ words';
+
+  // Render prompt list for the right task type
+  currentTopicFilter = 'all';
+  renderTopicFilters();
+  renderPromptList();
+
+  // Find matching prompt in writingPrompts by text
+  const allPrompts = [...(writingPrompts.task1 || []), ...(writingPrompts.task2 || [])];
+  const matched = allPrompts.find(p =>
+    p.text && q.text && p.text.trim().toLowerCase() === q.text.trim().toLowerCase()
+  );
+
+  setTimeout(() => {
+    if (matched) {
+      // Select the matched prompt — shows preview panel + Start Exam button
+      selectPrompt(matched.id);
+    } else {
+      // No match in prompt bank — inject as custom prompt so student can still start
+      currentExamPrompt = {
+        id: 'custom-' + id, text: q.text,
+        type: taskType, difficulty: q.difficulty || 'Medium',
+        topic: q.topic || 'General', chartHtml: null
+      };
+      document.getElementById('writing-detail-empty').style.display = 'none';
+      document.getElementById('selected-prompt-preview').style.display = 'block';
+      document.getElementById('selected-prompt-text').textContent = q.text;
+      const chart = document.getElementById('selected-prompt-chart');
+      if (chart) { chart.innerHTML = ''; chart.style.display = 'none'; }
+    }
+    // Scroll the detail panel into view
+    const detail = document.getElementById('writing-detail-panel');
+    if (detail) detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 150);
 }
 
 // Fix showSection nav tab highlighting
@@ -6053,7 +6095,7 @@ document.getElementById('api-key-input').addEventListener('keydown', e => {
 // CENTRAL CLAUDE API CALLER
 // All AI calls go through here — injects API key automatically
 // ══════════════════════════════════════════════
-async function callClaude({ system, userMsg, maxTokens = 1000 }) {
+async function callClaude({ system, userMsg, maxTokens = 2000 }) {
   const key = getApiKey();
   if (!key || !key.startsWith('sk-ant-')) {
     /* disabled */
@@ -6477,6 +6519,7 @@ async function signOut() {
 _sb.auth.onAuthStateChange(async (event, session) => {
   if (session?.user) {
     _currentUser = session.user;
+    _cloudSyncEnabled = true;
     document.getElementById('auth-screen').style.display = 'none';
     const indicator = document.getElementById('user-indicator');
     indicator.style.display = 'flex';
@@ -6487,6 +6530,7 @@ _sb.auth.onAuthStateChange(async (event, session) => {
     renderProgress();
   } else {
     _currentUser = null;
+    _cloudSyncEnabled = false;
     document.getElementById('auth-screen').style.display = 'flex';
     document.getElementById('user-indicator').style.display = 'none';
   }
@@ -6516,11 +6560,16 @@ async function syncFromCloud() {
   }
 }
 
-// ── Override saveToHistory to also save to cloud ──
-const _origSaveToHistory = saveToHistory;
-function saveToHistory(entry) {
-  _origSaveToHistory(entry); // keep localStorage working
-  if (_currentUser) {
+// ── Cloud sync hooks (re-entry safe, no function hoisting issues) ──
+// We patch the functions AFTER declaration using a flag approach
+
+let _cloudSyncEnabled = false; // set true after user logs in
+
+// Patch saveToHistory
+const _localSaveToHistory = saveToHistory;
+saveToHistory = function(entry) {
+  _localSaveToHistory(entry);
+  if (_cloudSyncEnabled && _currentUser) {
     _sb.from('ielts_history').insert({
       user_id: _currentUser.id,
       type: entry.type,
@@ -6529,43 +6578,38 @@ function saveToHistory(entry) {
       date: entry.date || new Date().toISOString()
     }).then(({error}) => { if(error) console.warn('History save error:', error.message); });
   }
-}
+};
 
-// ── Override saveWritingSample ──
-const _origSaveWritingSample = saveWritingSample;
-function saveWritingSample(sample) {
-  _origSaveWritingSample(sample);
-  if (_currentUser) {
+// Patch saveWritingSample
+const _localSaveWritingSample = saveWritingSample;
+saveWritingSample = function(sample) {
+  _localSaveWritingSample(sample);
+  if (_cloudSyncEnabled && _currentUser) {
     _sb.from('ielts_writing_samples').insert({
-      user_id: _currentUser.id,
-      ...sample,
-      id: undefined // let Supabase generate UUID
-    }).then(({error}) => { if(error) console.warn('Writing sample save error:', error.message); });
+      user_id: _currentUser.id, ...sample, id: undefined
+    }).then(({error}) => { if(error) console.warn('Writing save error:', error.message); });
   }
-}
+};
 
-// ── Override saveSpeakingSample ──
-const _origSaveSpeakingSample = saveSpeakingSample;
-function saveSpeakingSample(sample) {
-  _origSaveSpeakingSample(sample);
-  if (_currentUser) {
+// Patch saveSpeakingSample
+const _localSaveSpeakingSample = saveSpeakingSample;
+saveSpeakingSample = function(sample) {
+  _localSaveSpeakingSample(sample);
+  if (_cloudSyncEnabled && _currentUser) {
     _sb.from('ielts_speaking_samples').insert({
-      user_id: _currentUser.id,
-      ...sample,
-      id: undefined
-    }).then(({error}) => { if(error) console.warn('Speaking sample save error:', error.message); });
+      user_id: _currentUser.id, ...sample, id: undefined
+    }).then(({error}) => { if(error) console.warn('Speaking save error:', error.message); });
   }
-}
+};
 
-// ── Override saveVocab for cloud sync ──
-const _origSaveVocab = saveVocab;
-function saveVocab(list) {
-  _origSaveVocab(list);
-  // Sync vocab changes to cloud asynchronously
-  if (_currentUser) {
+// Patch saveVocab
+const _localSaveVocab = saveVocab;
+saveVocab = function(list) {
+  _localSaveVocab(list);
+  if (_cloudSyncEnabled && _currentUser) {
     syncVocabToCloud(list);
   }
-}
+};
 
 async function syncVocabToCloud(list) {
   if (!_currentUser) return;
@@ -6582,23 +6626,23 @@ async function syncVocabToCloud(list) {
 }
 
 // ── Delete overrides for cloud ──
-const _origDeleteWritingSample = deleteWritingSample;
-function deleteWritingSample(id) {
-  _origDeleteWritingSample(id);
-  if (_currentUser) {
+const _localDeleteWritingSample = deleteWritingSample;
+deleteWritingSample = function(id) {
+  _localDeleteWritingSample(id);
+  if (_cloudSyncEnabled && _currentUser) {
     _sb.from('ielts_writing_samples').delete().eq('user_id', _currentUser.id).eq('id', id)
       .then(({error}) => { if(error) console.warn('Delete error:', error.message); });
   }
-}
+};
 
-const _origDeleteSpeakingSample = deleteSpeakingSample;
-function deleteSpeakingSample(id) {
-  _origDeleteSpeakingSample(id);
-  if (_currentUser) {
+const _localDeleteSpeakingSample = deleteSpeakingSample;
+deleteSpeakingSample = function(id) {
+  _localDeleteSpeakingSample(id);
+  if (_cloudSyncEnabled && _currentUser) {
     _sb.from('ielts_speaking_samples').delete().eq('user_id', _currentUser.id).eq('id', id)
       .then(({error}) => { if(error) console.warn('Delete error:', error.message); });
   }
-}
+};
 
 // ── INIT ──────────────────────────────────────
 randomSpeakingPrompt();
