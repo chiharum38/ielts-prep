@@ -1929,7 +1929,7 @@ RULES:
 - Return ONLY the JSON object. No text before or after.`;
 
   try {
-    const response = await fetch('/.netlify/functions/score', {
+    const response = await fetch('/api/score', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': getApiKey(), 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
       body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1800, messages: [{ role: 'user', content: generatorPrompt }] })
@@ -3338,7 +3338,7 @@ document.getElementById('api-key-input').addEventListener('keydown', e => {
 // All AI calls go through here — injects API key automatically
 // ══════════════════════════════════════════════
 async function callClaude({ system, userMsg, maxTokens = 8000 }) {
-  const res = await fetch('/.netlify/functions/score', {
+  const res = await fetch('/api/score', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -3478,7 +3478,7 @@ async function sendChatMessage() {
       ? `\n[App context: student is on the ${activeSection} section. Current question/prompt: "${currentPrompt.trim()}"]`
       : `\n[App context: student is on the ${activeSection} section.]`;
 
-    const response = await fetch('/.netlify/functions/score', {
+    const response = await fetch('/api/score', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': getApiKey(), 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
       body: JSON.stringify({
