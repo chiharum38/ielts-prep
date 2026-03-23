@@ -2540,31 +2540,38 @@ function useQuestion(id) {
     renderSpeakingPrompt(q.text);
     showSection('speaking');
   } else {
-    // Send to Check My Essay mode, clear old feedback
-    document.getElementById('writing-prompt').value = q.text;
-    document.getElementById('writing-essay').value = '';
-    document.getElementById('writing-wc').textContent = '0 words';
-    document.getElementById('check-result')?.classList.remove('visible');
-    document.getElementById('check-result-band').textContent = '—';
-    document.getElementById('check-result-criteria').innerHTML = '';
-    document.getElementById('check-result-feedback').innerHTML = '';
+    // Route to Timed Exam mode
     showSection('writing');
-    // Switch to Check My Essay mode
-    const checkBtn = document.getElementById('mode-btn-check');
-    if (checkBtn) switchWritingMode('check', checkBtn);
-    // Set the correct task type and update inner tab button
+    const examBtn = document.getElementById('mode-btn-exam');
+    if (examBtn) switchWritingMode('exam', examBtn);
+
+    // Set correct task type
     const taskType = q.type === 'task1' ? 'task1' : 'task2';
-    document.getElementById('writing-task-type').textContent = taskType;
-    document.querySelectorAll('#writing-mode-check .inner-tab').forEach(t => {
-      t.classList.toggle('active', t.textContent.toLowerCase().includes(taskType.replace('task','task ')));
-    });
-    const imgUpload = document.getElementById('task1-image-upload');
-    if (imgUpload) imgUpload.style.display = taskType === 'task1' ? 'block' : 'none';
-    // Focus essay area
-    setTimeout(() => {
-      const essayEl = document.getElementById('writing-essay');
-      if (essayEl) { essayEl.focus(); essayEl.scrollIntoView({behavior:'smooth'}); }
-    }, 200);
+    currentExamTask = taskType;
+    document.getElementById('exam-task-type').textContent = taskType;
+
+    // Try to find a matching prompt in writingPrompts (by text match)
+    const allWritingPrompts = [...writingPrompts.task1, ...writingPrompts.task2];
+    let matchedPrompt = allWritingPrompts.find(p => p.text.trim() === q.text.trim());
+
+    if (!matchedPrompt) {
+      // Create a dynamic prompt object for questions not in writingPrompts
+      matchedPrompt = {
+        id: 'q-' + q.id,
+        topic: taskType === 'task1' ? 'Task 1' : 'General',
+        difficulty: q.difficulty || 'Medium',
+        text: q.text,
+        chartHtml: null
+      };
+    }
+    currentExamPrompt = matchedPrompt;
+
+    // Clear any previous exam result
+    document.getElementById('exam-step-result').style.display = 'none';
+    document.getElementById('exam-essay').value = '';
+
+    // Go straight into the exam writing area
+    startExam();
   }
 }
 
@@ -3332,12 +3339,13 @@ No markdown, no preamble. Only JSON.`;
     renderVocab();
   } catch(e) {
     setLoading('vocab', false);
+    // Always save the word even if AI enrichment fails
+    list.unshift({ id: Date.now(), word, category, note, definition:'', example:'', pos:'', reviewed:false, date: new Date().toISOString() });
+    saveVocab(list);
+    clearVocabInputs();
+    renderVocab();
     if (e.message !== 'API key required') {
-      showError('vocab', 'Could not fetch explanation. Word saved without definition.');
-      list.unshift({ id: Date.now(), word, category, note, definition:'', example:'', pos:'', reviewed:false, date: new Date().toISOString() });
-      saveVocab(list);
-      clearVocabInputs();
-      renderVocab();
+      showVocabToast('"' + word + '" saved ✓ (AI explanation unavailable — try again later)');
     }
   }
 }
@@ -3542,7 +3550,9 @@ async function callClaude({ system, userMsg, maxTokens = 8000, imageBase64 = nul
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `API error ${res.status}`);
+    // API returns { error: "message string" } or { error: { message: "..." } }
+    const errMsg = (typeof err?.error === 'string' ? err.error : err?.error?.message) || `API error ${res.status}`;
+    throw new Error(errMsg);
   }
   const data = await res.json();
   return data.content?.[0]?.text || '';
@@ -3983,6 +3993,21 @@ saveSpeakingSample = function(sample) {
       .then(({error}) => { if(error) console.warn('Speaking save:', error.message); });
   }
 };
+async function syncVocabToCloud(list) {
+  if (!_currentUser) return;
+  try {
+    // Upsert each item with user_id; silently ignore errors
+    const items = list.map(v => ({ ...v, user_id: _currentUser.id }));
+    // Delete old entries for this user then re-insert (simple full-sync approach)
+    await _sb.from('ielts_vocab').delete().eq('user_id', _currentUser.id);
+    if (items.length > 0) {
+      await _sb.from('ielts_vocab').insert(items);
+    }
+  } catch(e) {
+    console.warn('Vocab cloud sync failed (local data preserved):', e.message);
+  }
+}
+
 const _localSaveVocab = saveVocab;
 saveVocab = function(list) {
   _localSaveVocab(list);
