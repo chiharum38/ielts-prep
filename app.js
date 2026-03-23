@@ -413,6 +413,33 @@ function switchWritingTab(type, btn) {
   document.querySelectorAll('#writing-mode-check .inner-tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('writing-task-type').textContent = type;
+  const imgUpload = document.getElementById('task1-image-upload');
+  if (imgUpload) imgUpload.style.display = type === 'task1' ? 'block' : 'none';
+}
+
+let task1ImageBase64 = null;
+let task1ImageMimeType = 'image/jpeg';
+
+function handleTask1ImageUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  task1ImageMimeType = file.type || 'image/jpeg';
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl = e.target.result;
+    task1ImageBase64 = dataUrl.split(',')[1];
+    document.getElementById('task1-image-label').textContent = file.name;
+    document.getElementById('task1-preview-img').src = dataUrl;
+    document.getElementById('task1-image-preview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearTask1Image() {
+  task1ImageBase64 = null;
+  document.getElementById('task1-image-input').value = '';
+  document.getElementById('task1-image-label').textContent = 'Upload image of chart/table/diagram (optional)';
+  document.getElementById('task1-image-preview').style.display = 'none';
 }
 
 // ══════════════════════════════════════════════
@@ -1079,6 +1106,71 @@ const writingPrompts = {
           +'</svg></div>';
       })(),
       text:'The pie charts below show the main sources of energy used in two countries — France and Australia — in 2020. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.' },
+    {
+      id:'t1-19', topic:'Process Diagram', difficulty:'Medium',
+      text:'The diagram below shows the process of recycling glass bottles. Summarise the information by selecting and reporting the main features.',
+      chartHtml: `<div style="background:white;border:1px solid #e0d8cc;border-radius:10px;padding:16px;margin-top:12px;">
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#7a7469;margin-bottom:4px;">Figure 1</div>
+        <div style="font-size:0.8rem;font-weight:600;color:#0f0e17;margin-bottom:12px;">The Glass Bottle Recycling Process</div>
+        <svg viewBox="0 0 380 160" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'Public Sans',sans-serif;">
+          ${[
+            [20,55,60,30,'#1e3a8a','white','1. Collection','Bottles placed\nin recycling bins'],
+            [95,55,60,30,'#0e7c6b','white','2. Sorting','Sorted by colour\n(clear/green/brown)'],
+            [170,55,60,30,'#c8942a','white','3. Crushing','Crushed into\nsmall pieces (cullet)'],
+            [245,55,60,30,'#c0392b','white','4. Melting','Heated in furnace\nto 1500°C'],
+            [320,55,60,30,'#7c3aed','white','5. Moulding','Poured into moulds;\nnew bottles formed'],
+          ].map(([x,y,w,h,fill,textColor,title,sub]) => `
+            <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" rx="5"/>
+            <text x="${x+w/2}" y="${y+11}" text-anchor="middle" font-size="7.5" font-weight="700" fill="${textColor}">${title}</text>
+            ${sub.split('\n').map((line, i) => `<text x="${x+w/2}" y="${y+21+i*9}" text-anchor="middle" font-size="6.5" fill="${textColor}">${line}</text>`).join('')}
+          `).join('')}
+          ${[80,155,230,305].map(x => `<polygon points="${x},68 ${x+8},68 ${x+4},76" fill="#555"/>`).join('')}
+          <text x="190" y="120" text-anchor="middle" font-size="8" fill="#7a7469" font-style="italic">♻ Process repeats — glass can be recycled indefinitely</text>
+          <path d="M 350,85 Q 350,140 190,140 Q 30,140 30,85" fill="none" stroke="#2d7a2d" stroke-width="1.5" stroke-dasharray="4,3"/>
+        </svg>
+      </div>`
+    },
+    {
+      id:'t1-20', topic:'Mixed Charts', difficulty:'Hard',
+      text:'The bar chart and pie chart below show information about employment by sector in a European country in 2022. The bar chart shows the number of workers (in millions) in five sectors, while the pie chart shows the percentage breakdown of workers by employment type. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.',
+      chartHtml: `<div style="background:white;border:1px solid #e0d8cc;border-radius:10px;padding:16px;margin-top:12px;">
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#7a7469;margin-bottom:4px;">Figures 1 &amp; 2</div>
+        <div style="font-size:0.8rem;font-weight:600;color:#0f0e17;margin-bottom:10px;">Employment by Sector and Type, 2022</div>
+        <svg viewBox="0 0 380 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'Public Sans',sans-serif;">
+          <!-- Bar chart (left) -->
+          <text x="95" y="14" text-anchor="middle" font-size="8" font-weight="700" fill="#0f0e17">Workers by Sector (millions)</text>
+          <line x1="30" y1="20" x2="30" y2="155" stroke="#ccc" stroke-width="1"/>
+          <line x1="30" y1="155" x2="185" y2="155" stroke="#ccc" stroke-width="1"/>
+          ${[[0,1,2,3,4],[5,4,3.2,6.8,2.4],[['Services','#1e3a8a'],['Manufac.','#c8942a'],['Retail','#16a34a'],['Healthcare','#c0392b'],['Agri.','#7c3aed']]].length &&
+            [['Services',6.8,'#1e3a8a'],['Retail',5.0,'#16a34a'],['Healthcare',4.2,'#c0392b'],['Manufac.',3.8,'#c8942a'],['Agriculture',2.1,'#7c3aed']].map(([label,val,color],i) => {
+              const bh = val * 17, x = 36 + i * 30, y = 155 - bh;
+              return `<rect x="${x}" y="${y}" width="22" height="${bh}" fill="${color}" rx="2"/>
+                      <text x="${x+11}" y="${y-3}" text-anchor="middle" font-size="7" fill="#333">${val}m</text>
+                      <text x="${x+11}" y="165" text-anchor="middle" font-size="6.5" fill="#7a7469">${label.length>7?label.substring(0,7)+'…':label}</text>`;
+            }).join('')}
+          ${[0,2,4,6,8].map(v => `<line x1="28" y1="${155-v*17}" x2="185" y2="${155-v*17}" stroke="#eee" stroke-width="1"/>
+            <text x="26" y="${159-v*17}" text-anchor="end" font-size="7" fill="#7a7469">${v}</text>`).join('')}
+          <!-- Pie chart (right) -->
+          <text x="285" y="14" text-anchor="middle" font-size="8" font-weight="700" fill="#0f0e17">Employment Type (%)</text>
+          ${(function(){
+            const data=[['Full-time',58,'#1e3a8a'],['Part-time',27,'#c8942a'],['Self-employed',11,'#16a34a'],['Other',4,'#c0392b']];
+            let angle=-Math.PI/2, h='';
+            data.forEach(([label,pct,color])=>{
+              const a=pct/100*Math.PI*2;
+              const x1=285+65*Math.cos(angle),y1=90+65*Math.sin(angle);
+              const x2=285+65*Math.cos(angle+a),y2=90+65*Math.sin(angle+a);
+              const la=angle+a/2;
+              const lx=285+45*Math.cos(la),ly=90+45*Math.sin(la);
+              h+=`<path d="M285,90 L${x1},${y1} A65,65 0 ${a>Math.PI?1:0} 1 ${x2},${y2} Z" fill="${color}" stroke="white" stroke-width="1.5"/>`;
+              if(pct>=8) h+=`<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" font-size="9" font-weight="700" fill="white">${pct}%</text>`;
+              angle+=a;
+            });
+            const legend=data.map(([label,,color],i)=>`<text x="225" y="${162+i*11}" font-size="7.5" fill="#333"><tspan style="fill:${color}">■</tspan> ${label}</text>`).join('');
+            return h+legend;
+          })()}
+        </svg>
+      </div>`
+    },
   ]
 };
 
@@ -1204,11 +1296,9 @@ function selectPrompt(id) {
     previewChart.style.display = 'none';
   }
 
-  // Scroll detail panel into view on mobile
-  const detail = document.getElementById('writing-detail-panel');
-  if (detail && window.innerWidth < 760) {
-    detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  // Auto-start the exam immediately — go straight to writing area, clear old feedback
+  document.getElementById('exam-step-result').style.display = 'none';
+  startExam();
 }
 
 function deselectPrompt() {
@@ -1474,21 +1564,61 @@ CALIBRATION RULES — these override vague intuition:
 
   const isT1 = task === 'task1';
 
-  const t1Descriptors = `OFFICIAL IELTS TASK 1 BAND DESCRIPTORS — MAY 2023:
-TASK ACHIEVEMENT: Band 9=all requirements fully satisfied, clear overview, key features skilfully selected with accurate data; Band 8=all requirements covered, key features clearly highlighted, minor lapses only; Band 7=covers requirements, clear overview, key features highlighted, minor inaccuracies; Band 6=adequately highlighted, overview attempted, some irrelevant/inaccurate detail; Band 5=partial, mechanical, no clear overview; Band 4=minimal, key features not highlighted.
-PENALTY: No overview → cap TA Band 5. Under 150w → cap TA Band 5. Under 100w → cap TA Band 4.
-COHERENCE & COHESION: Band 9=effortless, natural cohesion, skilful paragraphing; Band 8=logically sequenced, cohesion well managed; Band 7=clear progression, flexible cohesive devices but some inaccuracies; Band 6=generally coherent, may be faulty/mechanical; Band 5=limited cohesion, lack of paragraphing.
-LEXICAL RESOURCE: Band 9=full flexibility, precise, errors extremely rare; Band 8=wide resource, skilful uncommon items, occasional spelling; Band 7=sufficient flexibility, some less common vocab, collocation awareness; Band 6=generally adequate, restricted range; Band 5=limited, noticeable errors.
-GRAMMATICAL RANGE & ACCURACY: Band 9=wide range, full flexibility, errors extremely rare; Band 8=wide range, majority error-free; Band 7=variety complex structures, frequent error-free sentences; Band 6=mix simple/complex, limited flexibility; Band 5=limited, errors frequent.
-BAND 7→8 GAP: In LR, replace common accurate words with precise collocations. In CC, use woven cohesion not mechanical transitions. In GRA, use embedded clauses and participial phrases. In TA, all data accurately reported with meaningful comparisons.`;
+  const t1Descriptors = `OFFICIAL IELTS TASK 1 BAND DESCRIPTORS (Certified Examiner Calibration):
 
-  const t2Descriptors = `OFFICIAL IELTS TASK 2 BAND DESCRIPTORS — MAY 2023:
-TASK RESPONSE: Band 9=explored in depth, fully developed position, ideas relevant/fully extended/well supported; Band 8=sufficiently addressed, well-developed position, ideas well extended with occasional omissions — Band 8 ideas address complexity, limitations, or nuanced conditions (e.g. acknowledging exceptions or structural inequalities); Band 7=main parts addressed, clear position, ideas extended but may over-generalise; Band 6=main parts addressed, relevant position but conclusions unclear/repetitive, ideas insufficiently developed; Band 5=partially addressed, limited position; Band 4=minimally addressed, position unclear.
-PENALTY: Under 250w → cap TR Band 5. Bullet-point listing → penalise TR and CC.
-COHERENCE & COHESION: Band 9=effortless, natural, paragraphing skilful; Band 8=logically sequenced, well managed; Band 7=clear progression, flexible cohesive devices but some over/under-use; Band 6=generally coherent, may be faulty or mechanical; Band 5=limited range, lack of progression.
-LEXICAL RESOURCE: Band 9=full flexibility, precise; Band 8=wide resource, less common vocabulary used accurately, minimal errors; Band 7=some range (e.g. "implement policies", "regulate", "awareness campaigns"), occasional common phrases; Band 6=adequate but repetitive or basic; Band 5=limited, noticeable errors.
-GRAMMATICAL RANGE & ACCURACY: Band 9=wide range, full flexibility; Band 8=wide range, majority error-free; Band 7=mix of complex/simple, frequently error-free; Band 6=mostly simple, some errors in complex structures; Band 5=limited, errors frequent.
-BAND 7→8 GAP: TR — surface generalisations vs. nuanced analysis (acknowledging conditions, exceptions, or structural barriers). LR — common accurate words vs. precise collocations ("make worse"→"exacerbate"). CC — mechanical transitions ("Furthermore,") vs. seamless woven cohesion. GRA — simple+compound vs. embedded relative/conditional/participial clauses.`;
+TASK ACHIEVEMENT: Band 8=all requirements covered, key features clearly highlighted, data accurate with only minor lapses; Band 7=covers requirements, clear overview, key features highlighted, minor omissions/inaccuracies possible; Band 6=key features adequately highlighted, overview attempted but may be vague, some irrelevant/inaccurate detail; Band 5=partially addresses requirements, recounts details mechanically, no clear overview; Band 4=minimally addressed, key features not highlighted.
+CRITICAL RULE — OVERVIEW: A response WITHOUT a clear overview of the main trend/pattern cannot exceed Band 5 for TA. The overview must identify THE MAIN PATTERN, not just restate the title. This is the single highest-value move in Task 1.
+CRITICAL RULE — WORD COUNT: Under 150 words → cap TA Band 5. Under 100 words → cap TA Band 4.
+CRITICAL RULE — SELECTING vs. LISTING: Band 7+ SELECT key features and compare. Band 5-6 LIST individual figures without grouping or comparison.
+
+COHERENCE & COHESION: Band 8=logically sequenced, cohesion well managed, occasional lapses; Band 7=clear progression, cohesive devices flexibly used but some inaccuracies or over/under-use; Band 6=generally coherent, cohesive devices present but sometimes erroneously or mechanically used; Band 5=some organisation but lacks overall progression, may use cohesive devices faultily.
+IMPORTANT: Coherence (logical flow of ideas, macro) and cohesion (linking devices, micro) are separate. "Connector-stuffing" (starting every sentence with Furthermore/Moreover) is mechanical = Band 6, NOT 7.
+
+LEXICAL RESOURCE: Band 8=wide resource, fluently and flexibly used, skilful use of uncommon items, occasional errors in word choice/collocation/spelling; Band 7=sufficient range, generally accurate, less common vocabulary used with some awareness, rare errors in word choice/collocation/spelling; Band 6=adequate range, attempts less common items with some inaccuracy, some spelling/word form errors but meaning not obscured; Band 5=limited range, noticeable errors in spelling and/or word form, over-reliance on basic vocabulary.
+
+GRAMMATICAL RANGE & ACCURACY: Band 8=wide range, majority error-free, rare minor errors as slips only; Band 7=good range, frequently uses complex structures, good control with some errors that do NOT impede communication; Band 6=mix of simple and complex, basic sentences error-free, errors in complex structures but rarely impede; Band 5=limited range, errors common, may make errors in complex structures that cause difficulty.
+CRITICAL RULE — IMPEDE THRESHOLD: Errors that do NOT affect clarity → GRA not below Band 7. Only errors that cause the reader genuine difficulty justify Band 6 GRA.
+CRITICAL RULE — RANGE vs. ACCURACY: A student who attempts complex structures with some errors scores HIGHER on GRA than one who uses only simple structures accurately. Reward range.
+
+BAND-LEVEL SIGNALS:
+• Band 5: Lists figures without grouping. No overview or only a vague restatement of title. Vocabulary repetitive and basic. Errors frequent enough to sometimes cause reader difficulty.
+• Band 6: Overview present but may be too broad. Selects some features but may miss key trends or include too much minor detail. Vocabulary adequate; attempts less common items but with inconsistent accuracy. Uses cohesive devices but mechanically. Errors in complex grammar noticeable but don't impede.
+• Band 7: Clear, accurate overview identifying the main pattern. Selects and compares data accurately across categories. Some less common vocabulary used with general accuracy. Logical paragraphing; cohesive devices mostly accurate though slightly over-used. Complex structures with some errors that do not impede.
+• Band 8: Insightful overview. Integrates data across categories naturally (not listed). Identifies RELATIONSHIPS between data points, not just individual values. Precise vocabulary (e.g. "plateaued", "a marginal increase", "the most pronounced difference"). Cohesion woven seamlessly, not noticeable as a device. Predominantly error-free grammar.
+
+OVERALL = arithmetic mean of TA+CC+LR+GRA, rounded to nearest 0.5.`;
+
+  const t2Descriptors = `OFFICIAL IELTS TASK 2 BAND DESCRIPTORS (Certified Examiner Calibration):
+
+TASK RESPONSE: Band 8=sufficiently addresses all parts, well-developed position, ideas extended and supported — Band 8 acknowledges nuance, complexity, limitations, or conditions (e.g. "this assumes equal access to resources"); Band 7=all parts addressed, main ideas clear, some may be more fully extended than others, may over-generalise; Band 6=addresses all parts though some may be more fully covered, relevant position clear despite occasional unclear arguments, ideas present but insufficiently developed or generic; Band 5=addresses task only partially, ideas limited and not adequately developed, position not always clear; Band 4=minimally addressed, position not identifiable.
+CRITICAL RULE — TASK TYPE COMPLIANCE: "Discuss both views and give your opinion" requires BOTH views presented. Presenting only one view → cap TR Band 5 regardless of language quality. "To what extent do you agree/disagree" requires a clear degree of agreement — sitting on the fence without reasoning is Band 6 at most.
+CRITICAL RULE — WORD COUNT: Under 250 words → cap TR Band 5. Bullet-point listing → penalise both TR and CC.
+CRITICAL RULE — DEVELOPMENT: Ideas that are merely stated but not extended with reasons/examples → maximum Band 5 for TR, even if the idea itself is relevant.
+
+COHERENCE & COHESION: Band 8=logically sequenced, cohesion well managed; Band 7=clear progression, flexible cohesive devices but some over/under-use or occasional mechanical phrases; Band 6=generally coherent, cohesive devices used but often mechanical ("On the one hand...", "In conclusion,"); Band 5=limited range, lack of progression.
+IMPORTANT: "Connector-stuffing" — starting every paragraph with "Furthermore/Moreover/In addition" even when not logically required — is mechanical = Band 6, NOT 7.
+
+LEXICAL RESOURCE: Band 8=wide resource, less common vocabulary used accurately and flexibly, minimal errors (e.g. "subsidising", "structural barriers", "facilitate", "exacerbate"); Band 7=some range, topic-specific terms used accurately (e.g. "implement policies", "carbon footprint", "healthcare infrastructure"), occasional common phrases; Band 6=adequate but repetitive, same basic words repeated throughout (health/people/government/good/important), basic vocabulary; Band 5=limited, noticeable errors.
+CRITICAL RULE — CALIBRATION: Topic-specific terms used accurately + at least some advanced items → LR 7, not 6. Common accurate words only, even if used correctly → LR 6.
+
+GRAMMATICAL RANGE & ACCURACY: Band 8=wide range, majority error-free, complex structures (conditionals, relative clauses, participial phrases) used naturally, errors only as slips; Band 7=mix of complex/simple, frequently error-free, some errors in complex structures that do NOT impede communication; Band 6=mostly simple structures, some complex structures attempted with recurrent errors; Band 5=limited range, errors frequent.
+CRITICAL RULE — IMPEDE THRESHOLD: Errors that do NOT affect clarity → GRA not below Band 7. Recurrent errors in complex structures that a reader notices → Band 6 GRA.
+CRITICAL RULE — RANGE: Attempting complex structures with some errors > using only simple structures accurately. Always reward range.
+
+BAND-LEVEL SIGNALS:
+• Band 5: Partially addresses task. Ideas stated but not developed with reasons or examples. Basic repetitive vocabulary. Simple structures with frequent errors. Cohesion limited or mechanical.
+• Band 6: All parts addressed but unevenly. Ideas present but generic ("Many people think technology is good for society"). Vocabulary adequate but repetitive. Mechanical linking devices. Errors in complex grammar noticeable but don't impede meaning overall. Position clear but logic has gaps.
+• Band 7: All parts fully addressed. Position well-maintained throughout. Ideas extended with relevant, specific support. Some less common vocabulary used accurately. Logical paragraph structure — cohesive devices mostly accurate though slightly formulaic. Complex structures with errors that are not systematic.
+• Band 8: Fully addresses all parts. Position well-developed and nuanced — acknowledges complexity, limitations, or exceptions. Ideas extended with specific, credible examples. Vocabulary wide and precise; idiomatic or sophisticated language used naturally. Grammar predominantly error-free across complex structures. Cohesion seamlessly integrated.
+
+CALIBRATION SIGNALS (override vague intuition):
+• "Simple but correct throughout" = Band 6–7, NOT Band 8.
+• "Nuanced + precise vocabulary + seamless cohesion + flexible complex grammar" = Band 8.
+• "Clear, supported, well-organised but formulaic" = Band 7, NOT Band 6.
+• Do NOT downgrade a clear, supported, logically-structured essay to Band 6 just because it could be "more precise".
+
+OVERALL = arithmetic mean of TR+CC+LR+GRA, rounded to nearest 0.5.`;
+
 
   const criteriaKey = isT1 ? 'ta' : 'tr';
   const criteriaName = isT1 ? 'Task Achievement' : 'Task Response';
@@ -1507,7 +1637,18 @@ Bands: 6=adequate,6.5=competent,7=good,7.5=strong,8=excellent. Be accurate.`;
     document.getElementById('result-band').textContent = r.overall;
     renderWritingResult(r, 'result-criteria', 'result-feedback', 'writing-result');
     saveToHistory({ type: taskName, band: r.overall, date: new Date().toISOString(), promptId: currentExamPrompt?.id });
-    saveWritingSample({ type: taskName, band: r.overall, essay, prompt: promptText, result: r, date: new Date().toISOString() });
+    saveWritingSample({
+      type: taskName, band: r.overall, essay, prompt: promptText, date: new Date().toISOString(),
+      ta_label: r.ta_label || 'Task Response',
+      scores: { ta: r.ta != null ? r.ta : r.tr, cc: r.cc, lr: r.lr, gra: r.gra },
+      band_justification: r.band_justification || '',
+      overall_comment: r.overall_comment || '',
+      strengths: r.strengths || [],
+      priority_improvements: r.priority_improvements || [],
+      phrase_fixes: r.phrase_fixes || [],
+      upgrade_half_band: r.upgrade_half_band || [],
+      upgrade_one_band: r.upgrade_one_band || [],
+    });
   } catch(e) {
     setLoading('writing', false);
     showError('writing', e.message || 'Error scoring essay. Please try again.');
@@ -1624,20 +1765,37 @@ async function checkWriting() {
   const criteriaKey = isT1 ? 'ta' : 'tr';
   const criteriaName = isT1 ? 'Task Achievement' : 'Task Response';
 
-  const systemPrompt = `IELTS examiner. Score the ${taskName} essay. Return ONLY valid JSON (no markdown, no code blocks):
-{"overall":6.5,"${criteriaKey}":6.5,"cc":7.0,"lr":6.0,"gra":6.5,"ta_label":"${criteriaName}","cc_label":"Coherence & Cohesion","lr_label":"Lexical Resource","gra_label":"Grammatical Range & Accuracy","band_justification":"One sentence: main limiting factor","ta_descriptor":"Student performance for ${criteriaName}","ta_why_not_higher":"Exact missing feature for next band","cc_descriptor":"CC performance","cc_why_not_higher":"What is missing","lr_descriptor":"LR performance","lr_why_not_higher":"What is missing","gra_descriptor":"GRA performance","gra_why_not_higher":"What is missing","strengths":["strength 1","strength 2","strength 3"],"priority_improvements":["improvement 1","improvement 2","improvement 3"],"phrase_fixes":[{"original":"phrase from essay","improved":"better version","reason":"why"},{"original":"phrase 2","improved":"better 2","reason":"why"},{"original":"phrase 3","improved":"better 3","reason":"why"}],"upgrade_half_band":["action for +0.5 band","action 2"],"upgrade_one_band":["action for +1.0 band","action 2"],"overall_comment":"2-3 sentences of examiner commentary."}
-Bands: 6=adequate,6.5=competent,7=good,7.5=strong,8=excellent. Be accurate.`;
+  const checkDescriptors = isT1 ? `IELTS Task 1 calibration: Band 5=no overview/mechanical listing; Band 6=overview present but vague, some features missed, adequate vocab, mechanical connectors, errors in complex grammar; Band 7=clear accurate overview, key features selected and compared, some less common vocab, mostly accurate grammar/cohesion; Band 8=insightful overview, data integrated with relationships identified, precise vocab (e.g. "plateaued", "marginal"), seamless cohesion, predominantly error-free. KEY RULES: No overview→cap TA Band 5. Under 150w→cap TA Band 5. Errors not impeding communication→GRA not below 7. Reward range over accuracy.`
+    : `IELTS Task 2 calibration: Band 5=partial/one-sided, ideas stated not developed; Band 6=all parts addressed unevenly, generic ideas, repetitive basic vocab, mechanical linking, recurrent complex grammar errors; Band 7=all parts addressed, position maintained, ideas extended with specific support, topic-specific vocab, errors not systematic; Band 8=nuanced position acknowledging complexity/limitations, specific credible examples, precise less common vocab (e.g. "exacerbate", "subsidise"), seamless cohesion, predominantly error-free. KEY RULES: "Discuss both views" requires both views or cap TR Band 5. Under 250w→cap TR Band 5. Errors not impeding→GRA not below 7. "Simple but correct" = Band 6-7 max. "Clear+supported+formulaic" = Band 7, not 6.`;
 
-  const userMsg = `PROMPT: ${promptText || '(no prompt provided)'}\n\nESSAY:\n${essay}`;
+  const systemPrompt = `You are a certified IELTS examiner. Score this ${taskName}. ${checkDescriptors}
+
+Return ONLY valid JSON (no markdown, no code blocks):
+{"overall":6.5,"${criteriaKey}":6.5,"cc":7.0,"lr":6.0,"gra":6.5,"ta_label":"${criteriaName}","cc_label":"Coherence & Cohesion","lr_label":"Lexical Resource","gra_label":"Grammatical Range & Accuracy","band_justification":"One sentence: main limiting factor","ta_descriptor":"Student performance for ${criteriaName}","ta_why_not_higher":"Exact missing feature for next band","cc_descriptor":"CC performance","cc_why_not_higher":"What is missing","lr_descriptor":"LR performance","lr_why_not_higher":"What is missing","gra_descriptor":"GRA performance","gra_why_not_higher":"What is missing","strengths":["strength 1","strength 2","strength 3"],"priority_improvements":["improvement 1","improvement 2","improvement 3"],"phrase_fixes":[{"original":"phrase from essay","improved":"better version","reason":"why"},{"original":"phrase 2","improved":"better 2","reason":"why"},{"original":"phrase 3","improved":"better 3","reason":"why"}],"upgrade_half_band":["action for +0.5 band","action 2"],"upgrade_one_band":["action for +1.0 band","action 2"],"overall_comment":"2-3 sentences of examiner commentary."}
+Overall = arithmetic mean of the 4 criteria rounded to nearest 0.5. Be accurate and consistent with real IELTS standards.`;
+
+  const imageNote = (isT1 && task1ImageBase64) ? '\n\n[An image of the chart/diagram is attached above — describe and analyse it in the context of the essay.]' : '';
+  const userMsg = `PROMPT: ${promptText || '(no prompt provided)'}${imageNote}\n\nESSAY:\n${essay}`;
 
   try {
-    const text = await callClaude({ system: systemPrompt, userMsg, maxTokens: 8000 });
+    const text = await callClaude({ system: systemPrompt, userMsg, maxTokens: 8000, imageBase64: (isT1 && task1ImageBase64) ? task1ImageBase64 : null, imageMimeType: task1ImageMimeType });
     const r = JSON.parse(text.replace(/```json|```/g, '').trim());
     setLoading('check', false);
     document.getElementById('check-result-band').textContent = r.overall;
     renderWritingResult(r, 'check-result-criteria', 'check-result-feedback', 'check-result');
     saveToHistory({ type: taskName, band: r.overall, date: new Date().toISOString() });
-    saveWritingSample({ type: taskName, band: r.overall, essay, prompt: promptText, result: r, date: new Date().toISOString() });
+    saveWritingSample({
+      type: taskName, band: r.overall, essay, prompt: promptText, date: new Date().toISOString(),
+      ta_label: r.ta_label || 'Task Response',
+      scores: { ta: r.ta != null ? r.ta : r.tr, cc: r.cc, lr: r.lr, gra: r.gra },
+      band_justification: r.band_justification || '',
+      overall_comment: r.overall_comment || '',
+      strengths: r.strengths || [],
+      priority_improvements: r.priority_improvements || [],
+      phrase_fixes: r.phrase_fixes || [],
+      upgrade_half_band: r.upgrade_half_band || [],
+      upgrade_one_band: r.upgrade_one_band || [],
+    });
   } catch(e) {
     setLoading('check', false);
     showError('check', e.message || 'Error scoring essay. Please try again.');
@@ -1747,7 +1905,7 @@ function renderFullTest(test) {
   const p1Topics = (test.part1.topics || []).map((topic, ti) => `
     <div class="full-test-topic-name">${topic.name}</div>
     ${topic.questions.map((q, qi) => `
-      <div class="full-test-q" onclick="loadFullTestQuestion(this)" title="Click to practise this question" style="cursor:pointer;">
+      <div class="full-test-q" onclick="loadFullTestQuestion(this)" title="Click to practice this question" style="cursor:pointer;">
         <div class="full-test-q-num">${qi + 1}</div>
         <div class="full-test-q-text">${q}</div>
       </div>`).join('')}
@@ -1764,7 +1922,7 @@ function renderFullTest(test) {
 
   // Part 3 HTML
   const p3Questions = (test.part3.questions || []).map((q, i) => `
-    <div class="full-test-q" onclick="loadFullTestQuestion(this)" title="Click to practise this question" style="cursor:pointer;">
+    <div class="full-test-q" onclick="loadFullTestQuestion(this)" title="Click to practice this question" style="cursor:pointer;">
       <div class="full-test-q-num" style="background:#f3e8ff;color:#6d28d9;">${i + 1}</div>
       <div class="full-test-q-text">${q}</div>
     </div>`).join('');
@@ -1844,7 +2002,7 @@ function renderFullTest(test) {
     </div>
 
     <div style="margin-top:12px;padding:10px 14px;background:var(--primary-fixed);border-radius:8px;font-size:0.8rem;color:var(--primary);">
-      💡 <strong>Tip:</strong> Use the recorder below to practise each question. For Part 1, record one answer at a time. For Part 2, practise your full cue card response.
+      💡 <strong>Tip:</strong> Use the recorder below to practice each question. For Part 1, record one answer at a time. For Part 2, practice your full cue card response.
     </div>
   `;
 }
@@ -2169,9 +2327,24 @@ async function checkSpeaking() {
     ? 'Part 2 (extended monologue, 1-2 min): assess sustained speech, topic development, discourse markers, grammar variety.'
     : 'Part 3 (abstract discussion): highest demands — expect speculation, complex structures, idiomatic vocabulary, nuanced argument.';
 
-  const systemPrompt = `IELTS Speaking examiner. Score Part ${part}. Return ONLY valid JSON (no markdown, no code blocks):
+  const systemPrompt = `You are a certified IELTS Speaking examiner. Score Part ${part} using official band descriptors.
+
+FLUENCY & COHERENCE: Band 8=speaks fluently with only occasional repetition/self-correction, hesitation is content-related, develops topics coherently; Band 7=speaks at length without noticeable effort, some hesitation/repetition but coherent; Band 6=willing to speak at length but may lose coherence, uses fillers but not exclusively; Band 5=usually maintains flow but uses repetition/self-correction/slow speech, over-relies on fillers.
+CRITICAL: Fluency is NOT speed. A slow, confident, coherent speaker can score Band 7+. Fluency = communicating without breakdown, not speaking fast. Memorised scripts → cap FC Band 6.
+
+LEXICAL RESOURCE: Band 8=wide resource, flexible/precise, skilful use of uncommon items, occasional errors in word choice; Band 7=uses vocabulary flexibly across topics, uncommon items with some awareness, errors rare; Band 6=adequate range, attempts less common vocabulary with some inaccuracy; Band 5=limited, repetitive, errors cause some listener difficulty.
+
+GRAMMATICAL RANGE & ACCURACY: Band 8=wide range, most error-free, only occasional inappropriate choices; Band 7=good range, frequently uses complex forms, both accurate and errors occur; Band 6=mix of structures, error-free basic sentences, errors in complex structures; Band 5=limited range, errors predominate in complex structures.
+CRITICAL RULE — IMPEDE THRESHOLD: Errors that do NOT cause listener difficulty → GRA not below Band 7.
+
+PRONUNCIATION: Band 8=wide range of features, sustained/flexible, easy to understand, L1 accent has minimal effect; Band 7=shows all features with some flexibility, generally easy to understand; Band 6=uses range of features with mixed control, generally understood, L1 accent sometimes intrudes; Band 5=uses features inconsistently, intelligible most of the time.
+CRITICAL: Pronunciation is about intelligibility, not accent. A strong L1 accent that does not cause difficulty scores the same as a near-native speaker.
+
+BAND SIGNALS: Band 5=frequent fillers, errors cause difficulty, limited range; Band 6=communicates but with effort, mechanical linking, limited complex structures; Band 7=communicates effectively, some less common vocab/grammar, errors don't impede; Band 8=communicates naturally and precisely, wide range, only slips.
+
+Return ONLY valid JSON (no markdown, no code blocks):
 {"overall":6.5,"fluency":6.5,"vocabulary":6.0,"grammar":7.0,"pronunciation":6.5,"fluency_label":"Fluency & Coherence","vocab_label":"Lexical Resource","grammar_label":"Grammatical Range & Accuracy","pronunciation_label":"Pronunciation","band_justification":"One sentence: main limiting factor","fluency_descriptor":"Fluency performance","fluency_why_not_higher":"What is missing","vocab_descriptor":"Vocabulary performance","vocab_why_not_higher":"What is missing","grammar_descriptor":"Grammar performance","grammar_why_not_higher":"What is missing","pronunciation_descriptor":"Pronunciation performance","pronunciation_why_not_higher":"What is missing","strengths":["strength 1","strength 2","strength 3"],"priority_improvements":["improvement 1","improvement 2","improvement 3"],"phrase_fixes":[{"original":"phrase used","improved":"better version","reason":"why"},{"original":"phrase 2","improved":"better 2","reason":"why"}],"upgrade_half_band":["action for +0.5 band","action 2"],"upgrade_one_band":["action for +1.0 band","action 2"],"overall_comment":"2-3 sentences of examiner commentary."}
-Bands: 6=adequate,6.5=competent,7=good,7.5=strong,8=excellent.`;
+Overall = arithmetic mean of the 4 criteria rounded to nearest 0.5. Be accurate and consistent with real IELTS standards.`;
 
   const userMsg = `${partGuidance}\n\nPROMPT: ${prompt}\n\nTRANSCRIPT:\n${transcript}`;
   try {
@@ -2367,21 +2540,31 @@ function useQuestion(id) {
     renderSpeakingPrompt(q.text);
     showSection('speaking');
   } else {
-    // Send to Check My Essay mode
+    // Send to Check My Essay mode, clear old feedback
     document.getElementById('writing-prompt').value = q.text;
     document.getElementById('writing-essay').value = '';
     document.getElementById('writing-wc').textContent = '0 words';
+    document.getElementById('check-result')?.classList.remove('visible');
+    document.getElementById('check-result-band').textContent = '—';
+    document.getElementById('check-result-criteria').innerHTML = '';
+    document.getElementById('check-result-feedback').innerHTML = '';
     showSection('writing');
     // Switch to Check My Essay mode
     const checkBtn = document.getElementById('mode-btn-check');
     if (checkBtn) switchWritingMode('check', checkBtn);
-    // Set the correct task type
+    // Set the correct task type and update inner tab button
     const taskType = q.type === 'task1' ? 'task1' : 'task2';
-    const taskTypeEl = document.getElementById('writing-task-type');
-    if (taskTypeEl) taskTypeEl.textContent = taskType;
-    // Scroll to the essay area
-    const essayEl = document.getElementById('writing-essay');
-    if (essayEl) setTimeout(() => { essayEl.focus(); essayEl.scrollIntoView({behavior:'smooth'}); }, 200);
+    document.getElementById('writing-task-type').textContent = taskType;
+    document.querySelectorAll('#writing-mode-check .inner-tab').forEach(t => {
+      t.classList.toggle('active', t.textContent.toLowerCase().includes(taskType.replace('task','task ')));
+    });
+    const imgUpload = document.getElementById('task1-image-upload');
+    if (imgUpload) imgUpload.style.display = taskType === 'task1' ? 'block' : 'none';
+    // Focus essay area
+    setTimeout(() => {
+      const essayEl = document.getElementById('writing-essay');
+      if (essayEl) { essayEl.focus(); essayEl.scrollIntoView({behavior:'smooth'}); }
+    }, 200);
   }
 }
 
@@ -2415,7 +2598,7 @@ function renderDashboard() {
   let ctaLabel = 'Start Writing Task 2 →';
   let ctaAction = "showSection('writing')";
   if (lastEntry) {
-    ctaLabel = '↩ Continue Practising';
+    ctaLabel = '↩ Continue Practicing';
     ctaAction = lastEntry.type.includes('Speaking') ? "showSection('speaking')" : "showSection('writing')";
   }
 
@@ -2480,7 +2663,7 @@ function renderDashboard() {
     <div class="dashboard-hero">
       <div class="dashboard-hero-text">
         <h2 style="font-family:'Newsreader',serif;font-weight:600;">${lastEntry ? 'Welcome back' : 'Ready to begin?'}</h2>
-        <p>${lastEntry ? 'Pick up where you left off and keep building.' : 'Start practising to get expert IELTS feedback.'}</p>
+        <p>${lastEntry ? 'Pick up where you left off and keep building.' : 'Start practicing to get expert IELTS feedback.'}</p>
         ${streak > 0 ? `<div style="margin-top:6px;font-size:0.78rem;color:rgba(255,255,255,0.9);">🔥 ${streak}-day streak</div>` : ''}
         ${lastSessionNote}
       </div>
@@ -3249,14 +3432,14 @@ function renderVocab() {
 function exportVocab() {
   const list = getVocab();
   if (!list.length) { alert('No vocabulary saved yet.'); return; }
-  const lines = ['Word\tPart of Speech\tDefinition\tExample\tSynonyms\tCategory\tNote\tReviewed\tDate'];
-  list.forEach(v => {
-    lines.push([v.word, v.pos||'', v.definition||'', v.example||'', v.synonyms||'', CATEGORY_LABELS[v.category]||v.category, v.note||'', v.reviewed?'Yes':'No', v.date.split('T')[0]].join('\t'));
-  });
-  const blob = new Blob([lines.join('\n')], { type: 'text/tab-separated-values' });
+  const esc = s => '"' + String(s || '').replace(/"/g, '""') + '"';
+  const headers = ['Word', 'Part of Speech', 'Definition', 'Example', 'Synonyms', 'IELTS Tip', 'Category', 'Note', 'Reviewed', 'Date'];
+  const rows = list.map(v => [v.word, v.pos||'', v.definition||'', v.example||'', v.synonyms||'', v.tip||'', CATEGORY_LABELS[v.category]||v.category, v.note||'', v.reviewed?'Yes':'No', v.date.split('T')[0]].map(esc).join(','));
+  const csv = '\uFEFF' + [headers.map(esc).join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'ielts-vocabulary.tsv';
+  a.download = 'ielts-vocabulary.csv';
   a.click();
 }
 
@@ -3337,7 +3520,16 @@ document.getElementById('api-key-input').addEventListener('keydown', e => {
 // CENTRAL CLAUDE API CALLER
 // All AI calls go through here — injects API key automatically
 // ══════════════════════════════════════════════
-async function callClaude({ system, userMsg, maxTokens = 8000 }) {
+async function callClaude({ system, userMsg, maxTokens = 8000, imageBase64 = null, imageMimeType = 'image/jpeg' }) {
+  let content;
+  if (imageBase64) {
+    content = [
+      { type: 'image', source: { type: 'base64', media_type: imageMimeType, data: imageBase64 } },
+      { type: 'text', text: userMsg },
+    ];
+  } else {
+    content = userMsg;
+  }
   const res = await fetch('/api/score', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -3345,7 +3537,7 @@ async function callClaude({ system, userMsg, maxTokens = 8000 }) {
       model: 'claude-sonnet-4-6',
       max_tokens: maxTokens,
       system,
-      messages: [{ role: 'user', content: userMsg }],
+      messages: [{ role: 'user', content }],
     }),
   });
   if (!res.ok) {
@@ -3537,8 +3729,8 @@ async function sendChatMessage() {
     const word = sel.toString().trim().split(/\s+/).slice(0,4).join(' ');
     if (word.length > 50) { tip.style.display = 'none'; return; }
 
-    // Only show near writing prompts, exam area, speaking prompt
-    const target = e.target.closest('.exam-prompt-body, .exam-prompt-panel, .speaking-prompt-text, .speaking-prompt-card, .writing-detail-prompt');
+    // Show near writing/speaking prompts, essay areas, and feedback
+    const target = e.target.closest('.exam-prompt-body, .exam-prompt-panel, .speaking-prompt-text, .speaking-prompt-card, .writing-detail-prompt, .exam-write-panel, .fb-panel, .feedback-card, #writing-essay, #exam-essay, .chatbot-msg, .writing-sample-card');
     if (!target) { tip.style.display = 'none'; return; }
 
     tip.textContent = '📖 Save "' + word.slice(0,22) + (word.length>22?'…':'') + '"';
@@ -3563,20 +3755,43 @@ function quickSaveWordToVocab(word) {
   word = word.trim();
   const list = getVocab();
   if (list.find(v => v.word.toLowerCase() === word.toLowerCase())) {
-    // Already saved — show confirmation
     showVocabToast('"' + word + '" is already in your vocab list ✓');
     return;
   }
-  // Pre-fill and trigger AI save
-  const vocabWordEl = document.getElementById('vocab-word');
-  if (vocabWordEl) {
-    vocabWordEl.value = word;
-    addVocabWithAI().then(() => {
-      showVocabToast('"' + word + '" saved to vocabulary ✓');
-    }).catch(() => {
-      showVocabToast('"' + word + '" saved (no definition — add API key for AI explanation)');
-    });
-  }
+  // Save immediately so it appears at once, then enrich with AI in background
+  const entryId = Date.now();
+  list.unshift({ id: entryId, word, category: 'general', note: '', definition: '', example: '', pos: '', reviewed: false, date: new Date().toISOString() });
+  saveVocab(list);
+  vocabReviewFilter = 'all';
+  document.querySelectorAll('.vocab-rfbtn').forEach(b => b.classList.remove('active'));
+  const allBtn = document.querySelector('.vocab-rfbtn[onclick*="all"]');
+  if (allBtn) allBtn.classList.add('active');
+  renderVocab();
+  showVocabToast('"' + word + '" saved to vocabulary ✓');
+  enrichVocabEntryWithAI(entryId, word);
+}
+
+async function enrichVocabEntryWithAI(entryId, word) {
+  const systemPrompt = `You are an IELTS vocabulary expert. Given a word or phrase, return ONLY a JSON object:
+{"pos":"noun/verb/etc","definition":"1-2 sentence definition for IELTS learners","example":"One IELTS-style example sentence","synonyms":"2-3 synonyms, comma-separated","tip":"One short IELTS usage tip","category":"general/environment/technology/society/health/education/economy/phrases"}
+No markdown, no preamble. Only JSON.`;
+  try {
+    const text = await callClaude({ system: systemPrompt, userMsg: `Word/phrase: "${word}"`, maxTokens: 400 });
+    const ai = JSON.parse(text.replace(/```json|```/g,'').trim());
+    const validCategories = ['general','environment','technology','society','health','education','economy','phrases'];
+    const vocab = getVocab();
+    const entry = vocab.find(v => v.id === entryId);
+    if (entry) {
+      entry.definition = ai.definition || '';
+      entry.example = ai.example || '';
+      entry.pos = ai.pos || '';
+      entry.synonyms = ai.synonyms || '';
+      entry.tip = ai.tip || '';
+      if (ai.category && validCategories.includes(ai.category)) entry.category = ai.category;
+      saveVocab(vocab);
+      renderVocab();
+    }
+  } catch(e) { /* silently fail — word already saved without definition */ }
 }
 
 function saveSelectedOrPromptWord(elementId) {

@@ -925,6 +925,11 @@ select { cursor: pointer; }
   padding: 0.8rem 1.6rem; border-top: 1px solid #e2e8f0;
   background: #f1f5f9; line-height: 1.6;
 }
+/* Prevent SVG chart text from being clipped */
+#exam-chart-slot svg, #selected-prompt-chart svg, #task1-image-preview svg,
+.writing-sample-card svg, .chart-container svg { overflow: visible; }
+#exam-chart-slot > div, #selected-prompt-chart > div { overflow: visible; }
+
 .exam-tips {
   margin: 0 1.2rem 1.2rem; background: var(--surface-lowest); border-radius: 8px;
   padding: 10px 14px; border: 1px solid #e2e8f0;
@@ -1875,7 +1880,7 @@ footer strong { color: var(--primary); }
     </div>
     <div class="modal-err" id="modal-err">Please enter a valid Anthropic API key (starts with sk-ant-)</div>
     <div class="btn-row" style="margin-top:0;">
-      <button class="btn btn-primary" onclick="saveApiKey()">Save Key & Start Practising</button>
+      <button class="btn btn-primary" onclick="saveApiKey()">Save Key & Start Practicing</button>
       <button class="btn btn-outline" id="modal-cancel-btn" onclick="closeKeyModal()" style="display:none;">Cancel</button>
     </div>
   </div>
@@ -2101,6 +2106,20 @@ footer strong { color: var(--primary); }
         <button class="inner-tab" onclick="switchWritingTab('task1', this)">Academic Task 1</button>
       </div>
       <span id="writing-task-type" style="display:none">task2</span>
+
+      <!-- Task 1 image upload (only visible when Task 1 tab is active) -->
+      <div id="task1-image-upload" style="display:none;margin-bottom:1rem;">
+        <div class="field-label">Chart / Graph / Diagram (Task 1)</div>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;border:1.5px dashed rgba(0,52,97,0.25);border-radius:8px;background:var(--surface-lowest);font-size:0.85rem;color:var(--on-surface-var);transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='rgba(0,52,97,0.25)'">
+          <span style="font-size:1.4rem;">🖼️</span>
+          <span id="task1-image-label">Upload image of chart/table/diagram (optional)</span>
+          <input type="file" id="task1-image-input" accept="image/*" style="display:none;" onchange="handleTask1ImageUpload(this)">
+        </label>
+        <div id="task1-image-preview" style="display:none;margin-top:8px;position:relative;">
+          <img id="task1-preview-img" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid rgba(194,198,209,0.3);" />
+          <button onclick="clearTask1Image()" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:white;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:0.8rem;line-height:1;">✕</button>
+        </div>
+      </div>
 
       <div style="margin-bottom:1rem;">
         <div class="field-label">Essay Prompt (optional)</div>
@@ -2510,11 +2529,10 @@ footer strong { color: var(--primary); }
     <button class="chatbot-close" onclick="toggleChatbot()" title="Close">✕</button>
   </div>
   <div class="chatbot-messages" id="chatbot-messages">
-    <div class="chatbot-msg bot">Hi! I'm your Study Assistant — I have two modes:<br><br>📝 <strong>IELTS Coach</strong> — paste an essay or speaking response and I'll score it, explain what's stopping you from Band 8, and rewrite weak sentences.<br><br>🛠️ <strong>App QA</strong> — found a bug or want to suggest an improvement? Describe it and I'll diagnose the cause and suggest a fix.</div>
+    <div class="chatbot-msg bot">Hi! I'm your Study Assistant — I have two modes:<br><br>📝 <strong>IELTS Coach</strong> — paste an essay or speaking response and I'll score it, explain what's stopping you from the next band level, and rewrite weak sentences.<br><br>🛠️ <strong>App QA</strong> — found a bug or want to suggest an improvement? Describe it and I'll diagnose the cause and suggest a fix.</div>
   </div>
   <div class="chatbot-quick-actions">
-    <button class="chatbot-quick-btn" onclick="chatQuickAction('Score this essay:')">📊 Score essay</button>
-    <button class="chatbot-quick-btn" onclick="chatQuickAction('Rewrite this at Band 8:')">✨ Upgrade to B8</button>
+    <button class="chatbot-quick-btn" onclick="chatQuickAction('Rewrite this at the next band level:')">✨ Upgrade to next band level</button>
     <button class="chatbot-quick-btn" onclick="chatQuickAction('Give me synonyms for:')">💬 Synonyms</button>
     <button class="chatbot-quick-btn" onclick="chatQuickAction('Help me paraphrase:')">✏️ Paraphrase</button>
     <button class="chatbot-quick-btn" onclick="chatQuickAction('Give me ideas for:')">💡 Ideas</button>
