@@ -3841,7 +3841,7 @@ function showVocabToast(msg) {
 // SUPABASE — Auth + Cloud Database
 // Replace THESE TWO values after creating your project:
 // ══════════════════════════════════════════════
-const ADMIN_EMAIL = 'chiharu.mamiya38@gmail.com';
+const ADMIN_EMAIL = 'chiharu.englishteach@gmail.com';
 const SUPABASE_URL = 'https://avtiychylawasnokrixj.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2dGl5Y2h5bGF3YXNub2tyaXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNDE4MzksImV4cCI6MjA4OTcxNzgzOX0.UDj98V57fvLIO4yf_BS0v_Kk4wra08gnkM2DLXKuy98';
 
@@ -3916,11 +3916,19 @@ function skipAuth() {
 async function signOut() {
   await _sb.auth.signOut();
   _currentUser = null;
-  document.getElementById('auth-screen').style.display = 'flex';
-  document.getElementById('user-indicator').style.display = 'none';
-  document.getElementById('auth-email').value = '';
-  document.getElementById('auth-password').value = '';
+  const authScreen = document.getElementById('auth-screen');
+  if (authScreen) authScreen.style.display = 'flex';
+  const indicator = document.getElementById('user-indicator');
+  if (indicator) indicator.style.display = 'none';
+  const adminTab = document.getElementById('nav-admin-tab');
+  if (adminTab) adminTab.style.display = 'none';
+  const emailEl = document.getElementById('auth-email');
+  if (emailEl) emailEl.value = '';
+  const passEl = document.getElementById('auth-password');
+  if (passEl) passEl.value = '';
 }
+// Alias so the Sign Out button in the nav works
+const handleSignOut = signOut;
 
 // ── Auth State Listener ────────────────────────
 _sb.auth.onAuthStateChange(async (event, session) => {
@@ -4062,7 +4070,7 @@ deleteSpeakingSample = function(id) {
 let _adminSelectedUser = null;
 
 async function loadAdminPanel() {
-  if (!_currentUser || _currentUser.email !== ADMIN_EMAIL) return;
+  if (!_currentUser || _currentUser.email?.toLowerCase().trim() !== ADMIN_EMAIL.toLowerCase().trim()) return;
   const panel = document.getElementById('admin-panel');
   if (!panel) return;
   panel.innerHTML = '<p style="color:var(--on-surface-var);padding:2rem;">Loading students…</p>';
@@ -4094,7 +4102,7 @@ async function loadAdminPanel() {
           const s = histMap[p.user_id] || { count: 0, total: 0 };
           const avg = s.count > 0 ? (s.total / s.count).toFixed(1) : '—';
           const lastSeen = p.last_seen ? new Date(p.last_seen).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '—';
-          const isMe = p.email === ADMIN_EMAIL;
+          const isMe = p.email?.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
           return `<div class="admin-student-row ${isMe ? 'admin-me' : ''}" onclick="loadStudentData('${p.user_id}','${p.email}')">
             <div class="admin-student-info">
               <span class="admin-student-email">${p.email}${isMe ? ' <span class="admin-badge">you</span>' : ''}</span>
