@@ -3856,10 +3856,25 @@ function switchAuthTab(mode) {
   document.getElementById('tab-login').style.color = mode==='login' ? 'white' : '#57657a';
   document.getElementById('tab-signup').style.background = mode==='signup' ? '#003461' : 'white';
   document.getElementById('tab-signup').style.color = mode==='signup' ? 'white' : '#57657a';
-  document.getElementById('auth-submit-btn').textContent = mode==='login' ? 'Sign In' : 'Create Account';
-  document.getElementById('auth-forgot').style.display = mode==='login' ? 'block' : 'none';
   document.getElementById('auth-error').style.display = 'none';
   document.getElementById('auth-success').style.display = 'none';
+
+  const pwdGroup = document.getElementById('auth-password-group');
+  const signupNote = document.getElementById('auth-signup-note');
+  const submitBtn = document.getElementById('auth-submit-btn');
+  const forgotBtn = document.getElementById('auth-forgot');
+
+  if (mode === 'signup') {
+    if (pwdGroup) pwdGroup.style.display = 'none';
+    if (signupNote) signupNote.style.display = 'block';
+    if (submitBtn) submitBtn.textContent = 'Send Sign-up Link';
+    if (forgotBtn) forgotBtn.style.display = 'none';
+  } else {
+    if (pwdGroup) pwdGroup.style.display = 'block';
+    if (signupNote) signupNote.style.display = 'none';
+    if (submitBtn) submitBtn.textContent = 'Sign In';
+    if (forgotBtn) forgotBtn.style.display = 'block';
+  }
 }
 
 function showAuthError(msg) {
@@ -3875,25 +3890,41 @@ function showAuthSuccess(msg) {
 
 async function handleAuth() {
   const email = document.getElementById('auth-email').value.trim();
-  const password = document.getElementById('auth-password').value;
   const btn = document.getElementById('auth-submit-btn');
-  if (!email || !password) { showAuthError('Please enter your email and password.'); return; }
-  btn.textContent = 'Please wait…'; btn.disabled = true;
-  try {
-    if (_authMode === 'signup') {
-      const { error } = await _sb.auth.signUp({ email, password });
+  if (!email) { showAuthError('Please enter your email address.'); return; }
+
+  btn.disabled = true;
+
+  if (_authMode === 'signup') {
+    // Passwordless sign-up: send a magic link to the student's email
+    btn.textContent = 'Sending link…';
+    try {
+      const { error } = await _sb.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: true, emailRedirectTo: 'https://ielts-scholar.vercel.app' }
+      });
       if (error) throw error;
-      showAuthSuccess('Account created! Check your email to confirm, then sign in.');
-      switchAuthTab('login');
-    } else {
-      const { data, error } = await _sb.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      // onAuthStateChange will handle the rest
+      showAuthSuccess('✓ Check your email! Click the link we sent to sign in. No password needed.');
+    } catch(e) {
+      showAuthError(e.message || 'Something went wrong. Please try again.');
     }
+    btn.textContent = 'Send Sign-up Link';
+    btn.disabled = false;
+    return;
+  }
+
+  // Login with password
+  const password = document.getElementById('auth-password').value;
+  if (!password) { showAuthError('Please enter your password.'); btn.disabled = false; return; }
+  btn.textContent = 'Signing in…';
+  try {
+    const { error } = await _sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    // onAuthStateChange handles the rest
   } catch(e) {
     showAuthError(e.message || 'Something went wrong. Please try again.');
   }
-  btn.textContent = _authMode === 'login' ? 'Sign In' : 'Create Account';
+  btn.textContent = 'Sign In';
   btn.disabled = false;
 }
 
@@ -3914,8 +3945,10 @@ function skipAuth() {
 }
 
 async function signOut() {
-  await _sb.auth.signOut();
+  try { await _sb.auth.signOut(); } catch(e) { console.warn('Sign out error:', e.message); }
   _currentUser = null;
+  _cloudSyncEnabled = false;
+  // Reset UI
   const authScreen = document.getElementById('auth-screen');
   if (authScreen) authScreen.style.display = 'flex';
   const indicator = document.getElementById('user-indicator');
@@ -3926,6 +3959,10 @@ async function signOut() {
   if (emailEl) emailEl.value = '';
   const passEl = document.getElementById('auth-password');
   if (passEl) passEl.value = '';
+  // Switch back to login tab cleanly
+  switchAuthTab('login');
+  // Hard reload to clear all in-memory state
+  setTimeout(() => window.location.reload(), 100);
 }
 // Alias so the Sign Out button in the nav works
 const handleSignOut = signOut;
@@ -4165,20 +4202,23 @@ async function loadAdminPanel() {
 }
 
 async function confirmDeleteStudent(userId, email) {
-  const confirmed = window.confirm(`Delete all data for ${email}?\n\nThis removes all their essays, speaking samples, scores and vocabulary. Their login account remains but all progress is erased.\n\nThis cannot be undone.`);
+  const confirmed = window.confirm(`Permanently delete account for ${email}?\n\nThis deletes their account AND all data (essays, scores, speaking, vocabulary). They will no longer be able to log in.\n\nThis cannot be undone.`);
   if (!confirmed) return;
   try {
-    await Promise.all([
-      _sb.from('ielts_writing_samples').delete().eq('user_id', userId),
-      _sb.from('ielts_speaking_samples').delete().eq('user_id', userId),
-      _sb.from('ielts_history').delete().eq('user_id', userId),
-      _sb.from('ielts_vocab').delete().eq('user_id', userId),
-      _sb.from('user_profiles').delete().eq('user_id', userId),
-    ]);
-    alert(`✓ All data for ${email} has been deleted.`);
+    const { data: { session } } = await _sb.auth.getSession();
+    if (!session?.access_token) throw new Error('No active session — please sign in again.');
+
+    const res = await fetch('/api/delete-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ userId })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Delete failed');
+    alert(`✓ Account for ${email} has been permanently deleted.`);
     loadAdminPanel();
   } catch(e) {
-    alert(`Error deleting student data: ${e.message}`);
+    alert(`Error: ${e.message}`);
   }
 }
 
@@ -4197,18 +4237,79 @@ async function loadStudentData(userId, email) {
     const fmtDate = d => d ? new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '—';
     const bandBg = b => b >= 7.5 ? '#dcfce7' : b >= 6 ? '#fef9c3' : '#fee2e2';
     const bandFg = b => b >= 7.5 ? '#16a34a' : b >= 6 ? '#b45309' : '#dc2626';
+    const scorePill = (label, val) => val != null ? `<span style="display:inline-flex;flex-direction:column;align-items:center;background:${bandBg(val)};color:${bandFg(val)};border-radius:8px;padding:4px 10px;font-size:0.78rem;min-width:52px;"><strong style="font-size:1rem;">${val}</strong><span style="font-size:0.65rem;opacity:0.8;text-align:center;">${label}</span></span>` : '';
 
-    const sampleCard = (item, type) => `
-      <div style="background:white;border:1px solid var(--outline-low,#e5e7eb);border-radius:12px;padding:1.1rem 1.2rem;margin-bottom:10px;">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
-          <span style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--on-surface-var);background:var(--surface-low);padding:2px 8px;border-radius:4px;">${item.type || type}</span>
-          <span style="background:${bandBg(item.band)};color:${bandFg(item.band)};font-weight:700;font-size:0.95rem;padding:2px 10px;border-radius:6px;">Band ${item.band}</span>
-          <span style="font-size:0.78rem;color:var(--on-surface-var);margin-left:auto;">${fmtDate(item.date)}</span>
+    const sampleCard = (item, type) => {
+      const sc = item.scores || {};
+      const isW = type === 'Writing';
+      const criteria = isW
+        ? [ ['TA/TR', sc.ta ?? sc.tr], ['CC', sc.cc], ['LR', sc.lr], ['GRA', sc.gra] ]
+        : [ ['Fluency', sc.fluency], ['Vocab', sc.vocabulary], ['Grammar', sc.grammar], ['Pronunc.', sc.pronunciation] ];
+
+      const strengths = Array.isArray(item.strengths) ? item.strengths : [];
+      const improvements = Array.isArray(item.priority_improvements) ? item.priority_improvements : [];
+      const fixes = Array.isArray(item.phrase_fixes) ? item.phrase_fixes : [];
+      const upgHalf = Array.isArray(item.upgrade_half_band) ? item.upgrade_half_band : [];
+      const upgOne  = Array.isArray(item.upgrade_one_band)  ? item.upgrade_one_band  : [];
+
+      return `
+      <div style="background:white;border:1px solid #e5e7eb;border-radius:14px;padding:1.2rem 1.4rem;margin-bottom:12px;">
+        <!-- Header row -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+          <span style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--on-surface-var);background:#f1f5f9;padding:3px 9px;border-radius:5px;">${item.type || type}</span>
+          <span style="background:${bandBg(item.band)};color:${bandFg(item.band)};font-weight:800;font-size:1.1rem;padding:3px 12px;border-radius:8px;">Band ${item.band}</span>
+          <span style="font-size:0.76rem;color:var(--on-surface-var);margin-left:auto;">${fmtDate(item.date)}</span>
         </div>
-        ${item.prompt ? `<p style="font-size:0.82rem;color:var(--on-surface-var);margin:0 0 8px;font-style:italic;">"${(item.prompt||'').substring(0,140)}${(item.prompt||'').length>140?'…':''}"</p>` : ''}
-        ${item.overall_comment ? `<p style="font-size:0.85rem;color:var(--on-surface);margin:0 0 8px;line-height:1.5;">${item.overall_comment}</p>` : ''}
-        ${(item.essay||item.transcript) ? `<details style="margin-top:6px;"><summary style="font-size:0.8rem;color:var(--primary);cursor:pointer;font-weight:600;">View ${type === 'Writing' ? 'essay' : 'transcript'}</summary><p style="font-size:0.83rem;line-height:1.7;color:var(--on-surface);margin:8px 0 0;white-space:pre-wrap;">${(item.essay||item.transcript||'').replace(/</g,'&lt;')}</p></details>` : ''}
+
+        <!-- Criteria score pills -->
+        ${criteria.some(([,v]) => v != null) ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">${criteria.map(([l,v]) => scorePill(l,v)).join('')}</div>` : ''}
+
+        <!-- Prompt -->
+        ${item.prompt ? `<p style="font-size:0.8rem;color:#64748b;margin:0 0 8px;font-style:italic;border-left:3px solid #e2e8f0;padding-left:8px;">${(item.prompt||'').substring(0,160)}${(item.prompt||'').length>160?'…':''}</p>` : ''}
+
+        <!-- Overall comment -->
+        ${item.overall_comment ? `<p style="font-size:0.87rem;color:var(--on-surface);margin:0 0 10px;line-height:1.6;">${item.overall_comment}</p>` : ''}
+        ${item.band_justification ? `<p style="font-size:0.82rem;color:#64748b;margin:0 0 10px;"><strong>Key factor:</strong> ${item.band_justification}</p>` : ''}
+
+        <!-- Strengths & Improvements side by side -->
+        ${(strengths.length || improvements.length) ? `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          ${strengths.length ? `<div style="background:#f0fdf4;border-radius:8px;padding:8px 10px;">
+            <div style="font-size:0.72rem;font-weight:700;color:#16a34a;margin-bottom:5px;text-transform:uppercase;">✓ Strengths</div>
+            ${strengths.map(s=>`<div style="font-size:0.8rem;color:#166534;margin-bottom:3px;">• ${s}</div>`).join('')}
+          </div>` : ''}
+          ${improvements.length ? `<div style="background:#fff7ed;border-radius:8px;padding:8px 10px;">
+            <div style="font-size:0.72rem;font-weight:700;color:#c2410c;margin-bottom:5px;text-transform:uppercase;">⚡ Priority Improvements</div>
+            ${improvements.map(i=>`<div style="font-size:0.8rem;color:#9a3412;margin-bottom:3px;">• ${i}</div>`).join('')}
+          </div>` : ''}
+        </div>` : ''}
+
+        <!-- Phrase fixes -->
+        ${fixes.length ? `<details style="margin-bottom:8px;"><summary style="font-size:0.8rem;color:var(--primary);cursor:pointer;font-weight:600;">✏️ Phrase fixes (${fixes.length})</summary>
+          <div style="margin-top:6px;display:flex;flex-direction:column;gap:5px;">
+            ${fixes.map(f=>`<div style="background:#f8fafc;border-radius:6px;padding:6px 10px;font-size:0.8rem;">
+              <span style="color:#dc2626;text-decoration:line-through;">${f.original||''}</span>
+              <span style="color:#64748b;margin:0 6px;">→</span>
+              <span style="color:#16a34a;font-weight:600;">${f.improved||''}</span>
+              ${f.reason ? `<span style="color:#64748b;display:block;font-size:0.75rem;margin-top:2px;">${f.reason}</span>` : ''}
+            </div>`).join('')}
+          </div>
+        </details>` : ''}
+
+        <!-- Upgrade suggestions -->
+        ${(upgHalf.length || upgOne.length) ? `<details style="margin-bottom:8px;"><summary style="font-size:0.8rem;color:var(--primary);cursor:pointer;font-weight:600;">🎯 How to improve</summary>
+          <div style="margin-top:6px;">
+            ${upgHalf.length ? `<div style="font-size:0.77rem;font-weight:700;color:#7c3aed;margin-bottom:3px;">For +0.5 band:</div>${upgHalf.map(u=>`<div style="font-size:0.8rem;color:#6d28d9;margin-bottom:2px;">• ${u}</div>`).join('')}` : ''}
+            ${upgOne.length  ? `<div style="font-size:0.77rem;font-weight:700;color:#1d4ed8;margin:6px 0 3px;">For +1.0 band:</div>${upgOne.map(u=>`<div style="font-size:0.8rem;color:#1e40af;margin-bottom:2px;">• ${u}</div>`).join('')}` : ''}
+          </div>
+        </details>` : ''}
+
+        <!-- Essay / Transcript -->
+        ${(item.essay||item.transcript) ? `<details><summary style="font-size:0.8rem;color:var(--primary);cursor:pointer;font-weight:600;">📄 View ${isW ? 'essay' : 'transcript'}</summary>
+          <p style="font-size:0.82rem;line-height:1.8;color:var(--on-surface);margin:8px 0 0;white-space:pre-wrap;border-top:1px solid #f1f5f9;padding-top:8px;">${(item.essay||item.transcript||'').replace(/</g,'&lt;')}</p>
+        </details>` : ''}
       </div>`;
+    };
 
     const writingHtml = (writing||[]).length > 0
       ? (writing||[]).map(w => sampleCard(w, 'Writing')).join('')

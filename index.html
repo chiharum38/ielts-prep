@@ -1772,12 +1772,13 @@ footer strong { color: var(--primary); }
 
     <div id="auth-error" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:9px 12px;font-size:0.82rem;color:#b91c1c;margin-bottom:1rem;"></div>
     <div id="auth-success" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:9px 12px;font-size:0.82rem;color:#166534;margin-bottom:1rem;"></div>
+    <div id="auth-signup-note" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:9px 12px;font-size:0.82rem;color:#1d4ed8;margin-bottom:1rem;">We'll email you a sign-in link — no password needed!</div>
 
     <div style="margin-bottom:1rem;">
       <div style="font-size:0.75rem;font-weight:600;color:#57657a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.4px;">Email</div>
       <input id="auth-email" type="email" placeholder="you@example.com" style="width:100%;padding:10px 12px;border:1px solid rgba(194,198,209,0.4);border-radius:8px;font-family:'Public Sans',sans-serif;font-size:0.9rem;box-sizing:border-box;outline:none;" onfocus="this.style.borderColor='#003461'" onblur="this.style.borderColor='rgba(194,198,209,0.4)'" onkeydown="if(event.key==='Enter')handleAuth()">
     </div>
-    <div style="margin-bottom:1.5rem;">
+    <div id="auth-password-group" style="margin-bottom:1.5rem;">
       <div style="font-size:0.75rem;font-weight:600;color:#57657a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.4px;">Password</div>
       <input id="auth-password" type="password" placeholder="••••••••" style="width:100%;padding:10px 12px;border:1px solid rgba(194,198,209,0.4);border-radius:8px;font-family:'Public Sans',sans-serif;font-size:0.9rem;box-sizing:border-box;outline:none;" onfocus="this.style.borderColor='#003461'" onblur="this.style.borderColor='rgba(194,198,209,0.4)'" onkeydown="if(event.key==='Enter')handleAuth()">
     </div>
