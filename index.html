@@ -1819,6 +1819,10 @@ footer strong { color: var(--primary); }
     <div class="nav-divider"></div>
     <button id="nav-admin-tab" class="nav-tab" data-section="admin" onclick="showSection('admin');loadAdminPanel();" style="display:none;background:var(--primary);color:white;border-radius:6px;font-size:0.75rem;">Admin</button>
   </div>
+  <div id="user-indicator" style="display:none;align-items:center;gap:8px;font-size:0.78rem;color:var(--on-surface-var);">
+    <span style="color:var(--primary);font-weight:600;" id="user-email-display"></span>
+    <button onclick="handleSignOut()" style="background:none;border:1px solid var(--outline);border-radius:6px;padding:3px 10px;font-size:0.74rem;cursor:pointer;color:var(--on-surface-var);">Sign out</button>
+  </div>
   <button class="key-indicator" id="key-indicator" onclick="/* disabled */" title="API Key Settings">
     <span class="key-dot red" id="key-dot"></span>
     <span id="key-indicator-text">Add API Key</span>

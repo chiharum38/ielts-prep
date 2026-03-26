@@ -3927,10 +3927,12 @@ _sb.auth.onAuthStateChange(async (event, session) => {
   if (session?.user) {
     _currentUser = session.user;
     _cloudSyncEnabled = true;
-    document.getElementById('auth-screen').style.display = 'none';
+    const authScreen = document.getElementById('auth-screen');
+    if (authScreen) authScreen.style.display = 'none';
     const indicator = document.getElementById('user-indicator');
-    indicator.style.display = 'flex';
-    document.getElementById('user-email-display').textContent = session.user.email.split('@')[0];
+    if (indicator) indicator.style.display = 'flex';
+    const emailDisplay = document.getElementById('user-email-display');
+    if (emailDisplay) emailDisplay.textContent = session.user.email.split('@')[0];
 
     // Register this user's profile (so admin can see who signed up)
     _sb.from('user_profiles').upsert({ user_id: session.user.id, email: session.user.email, last_seen: new Date().toISOString() }, { onConflict: 'user_id' }).then(() => {});
@@ -3946,8 +3948,10 @@ _sb.auth.onAuthStateChange(async (event, session) => {
   } else {
     _currentUser = null;
     _cloudSyncEnabled = false;
-    document.getElementById('auth-screen').style.display = 'flex';
-    document.getElementById('user-indicator').style.display = 'none';
+    const authScreenOut = document.getElementById('auth-screen');
+    if (authScreenOut) authScreenOut.style.display = 'flex';
+    const indicatorOut = document.getElementById('user-indicator');
+    if (indicatorOut) indicatorOut.style.display = 'none';
     const adminTab = document.getElementById('nav-admin-tab');
     if (adminTab) adminTab.style.display = 'none';
   }
