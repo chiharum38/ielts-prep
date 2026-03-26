@@ -4081,11 +4081,15 @@ async function loadAdminPanel() {
   panel.innerHTML = `<div style="padding:2rem;color:var(--on-surface-var);display:flex;align-items:center;gap:10px;"><span style="font-size:1.2rem;">⏳</span> Loading students…</div>`;
 
   try {
-    const [{ data: profiles, error }, { data: hist }] = await Promise.all([
-      _sb.from('user_profiles').select('*').order('last_seen', { ascending: false }),
-      _sb.from('ielts_history').select('user_id, band, type')
-    ]);
-    if (error) throw error;
+    // Run queries separately so we can report which one fails
+    const profilesRes = await _sb.from('user_profiles').select('*').order('last_seen', { ascending: false });
+    if (profilesRes.error) throw new Error(`user_profiles: ${profilesRes.error.message} (code: ${profilesRes.error.code})`);
+
+    const histRes = await _sb.from('ielts_history').select('user_id, band, type');
+    if (histRes.error) throw new Error(`ielts_history: ${histRes.error.message} (code: ${histRes.error.code})`);
+
+    const profiles = profilesRes.data;
+    const hist = histRes.data;
 
     const histMap = {};
     (hist || []).forEach(r => {
