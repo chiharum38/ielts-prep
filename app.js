@@ -3841,6 +3841,7 @@ function showVocabToast(msg) {
 // SUPABASE — Auth + Cloud Database
 // Replace THESE TWO values after creating your project:
 // ══════════════════════════════════════════════
+const ADMIN_EMAIL = 'chiharu.mamiya38@gmail.com';
 const SUPABASE_URL = 'https://avtiychylawasnokrixj.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2dGl5Y2h5bGF3YXNub2tyaXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNDE4MzksImV4cCI6MjA4OTcxNzgzOX0.UDj98V57fvLIO4yf_BS0v_Kk4wra08gnkM2DLXKuy98';
 
@@ -3930,6 +3931,14 @@ _sb.auth.onAuthStateChange(async (event, session) => {
     const indicator = document.getElementById('user-indicator');
     indicator.style.display = 'flex';
     document.getElementById('user-email-display').textContent = session.user.email.split('@')[0];
+
+    // Register this user's profile (so admin can see who signed up)
+    _sb.from('user_profiles').upsert({ user_id: session.user.id, email: session.user.email, last_seen: new Date().toISOString() }, { onConflict: 'user_id' }).then(() => {});
+
+    // Show admin tab if this is the admin
+    const adminTab = document.getElementById('nav-admin-tab');
+    if (adminTab) adminTab.style.display = session.user.email === ADMIN_EMAIL ? 'inline-flex' : 'none';
+
     // Load user data into localStorage for compatibility
     await syncFromCloud();
     renderDashboard();
@@ -3939,6 +3948,8 @@ _sb.auth.onAuthStateChange(async (event, session) => {
     _cloudSyncEnabled = false;
     document.getElementById('auth-screen').style.display = 'flex';
     document.getElementById('user-indicator').style.display = 'none';
+    const adminTab = document.getElementById('nav-admin-tab');
+    if (adminTab) adminTab.style.display = 'none';
   }
 });
 
@@ -4029,6 +4040,129 @@ deleteSpeakingSample = function(id) {
       .then(({error}) => { if(error) console.warn('Delete speaking:', error.message); });
   }
 };
+
+// ══════════════════════════════════════════════
+// ADMIN PANEL
+// ══════════════════════════════════════════════
+let _adminSelectedUser = null;
+
+async function loadAdminPanel() {
+  if (!_currentUser || _currentUser.email !== ADMIN_EMAIL) return;
+  const panel = document.getElementById('admin-panel');
+  if (!panel) return;
+  panel.innerHTML = '<p style="color:var(--on-surface-var);padding:2rem;">Loading students…</p>';
+
+  try {
+    const { data: profiles, error } = await _sb.from('user_profiles').select('*').order('last_seen', { ascending: false });
+    if (error) throw error;
+    if (!profiles || profiles.length === 0) {
+      panel.innerHTML = '<p style="color:var(--on-surface-var);padding:2rem;">No students have signed up yet.</p>';
+      return;
+    }
+
+    // Fetch summary counts per user from history
+    const { data: hist } = await _sb.from('ielts_history').select('user_id, band');
+    const histMap = {};
+    (hist || []).forEach(r => {
+      if (!histMap[r.user_id]) histMap[r.user_id] = { count: 0, total: 0 };
+      histMap[r.user_id].count++;
+      histMap[r.user_id].total += parseFloat(r.band) || 0;
+    });
+
+    panel.innerHTML = `
+      <div class="admin-header">
+        <h2 style="font-family:var(--font-serif);font-size:1.4rem;color:var(--primary);margin:0;">Students <span style="font-size:0.9rem;font-weight:400;color:var(--on-surface-var);">(${profiles.length})</span></h2>
+        <p style="font-size:0.82rem;color:var(--on-surface-var);margin:4px 0 0;">Click any student to view their data.</p>
+      </div>
+      <div class="admin-student-list">
+        ${profiles.map(p => {
+          const s = histMap[p.user_id] || { count: 0, total: 0 };
+          const avg = s.count > 0 ? (s.total / s.count).toFixed(1) : '—';
+          const lastSeen = p.last_seen ? new Date(p.last_seen).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '—';
+          const isMe = p.email === ADMIN_EMAIL;
+          return `<div class="admin-student-row ${isMe ? 'admin-me' : ''}" onclick="loadStudentData('${p.user_id}','${p.email}')">
+            <div class="admin-student-info">
+              <span class="admin-student-email">${p.email}${isMe ? ' <span class="admin-badge">you</span>' : ''}</span>
+              <span class="admin-student-meta">Last active: ${lastSeen}</span>
+            </div>
+            <div class="admin-student-stats">
+              <span class="admin-stat"><strong>${s.count}</strong> sessions</span>
+              <span class="admin-stat">Avg band <strong>${avg}</strong></span>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div id="admin-student-detail" style="margin-top:1.5rem;"></div>
+    `;
+  } catch(e) {
+    panel.innerHTML = `<p style="color:#ef4444;padding:2rem;">Error loading students: ${e.message}</p>`;
+  }
+}
+
+async function loadStudentData(userId, email) {
+  _adminSelectedUser = userId;
+  const detail = document.getElementById('admin-student-detail');
+  if (!detail) return;
+  detail.innerHTML = `<p style="color:var(--on-surface-var);padding:1rem 0;">Loading data for ${email}…</p>`;
+
+  try {
+    const [{ data: writing }, { data: speaking }, { data: hist }] = await Promise.all([
+      _sb.from('ielts_writing_samples').select('*').eq('user_id', userId).order('date', { ascending: false }),
+      _sb.from('ielts_speaking_samples').select('*').eq('user_id', userId).order('date', { ascending: false }),
+      _sb.from('ielts_history').select('*').eq('user_id', userId).order('date', { ascending: false }),
+    ]);
+
+    const fmtDate = d => d ? new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '—';
+    const bandClass = b => b >= 7.5 ? 'band-high' : b >= 6 ? 'band-mid' : 'band-low';
+
+    const writingHtml = writing && writing.length > 0 ? writing.map(w => `
+      <div class="admin-sample-card">
+        <div class="admin-sample-header">
+          <span class="admin-sample-type">${w.type || 'Writing'}</span>
+          <span class="crit-score ${bandClass(w.band)}" style="font-size:1.1rem;font-weight:700;">Band ${w.band}</span>
+          <span class="admin-sample-date">${fmtDate(w.date)}</span>
+        </div>
+        ${w.prompt ? `<p class="admin-sample-prompt">${w.prompt.substring(0, 120)}${w.prompt.length > 120 ? '…' : ''}</p>` : ''}
+        ${w.essay ? `<details class="admin-essay-toggle"><summary>View essay</summary><p class="admin-essay-text">${w.essay.replace(/\n/g,'<br>')}</p></details>` : ''}
+        ${w.overall_comment ? `<p class="admin-comment">${w.overall_comment}</p>` : ''}
+      </div>`).join('') : '<p style="color:var(--on-surface-var);font-size:0.85rem;">No writing samples yet.</p>';
+
+    const speakingHtml = speaking && speaking.length > 0 ? speaking.map(s => `
+      <div class="admin-sample-card">
+        <div class="admin-sample-header">
+          <span class="admin-sample-type">${s.type || 'Speaking'}</span>
+          <span class="crit-score ${bandClass(s.band)}" style="font-size:1.1rem;font-weight:700;">Band ${s.band}</span>
+          <span class="admin-sample-date">${fmtDate(s.date)}</span>
+        </div>
+        ${s.prompt ? `<p class="admin-sample-prompt">${s.prompt.substring(0, 120)}${s.prompt.length > 120 ? '…' : ''}</p>` : ''}
+        ${s.transcript ? `<details class="admin-essay-toggle"><summary>View transcript</summary><p class="admin-essay-text">${s.transcript.replace(/\n/g,'<br>')}</p></details>` : ''}
+        ${s.overall_comment ? `<p class="admin-comment">${s.overall_comment}</p>` : ''}
+      </div>`).join('') : '<p style="color:var(--on-surface-var);font-size:0.85rem;">No speaking samples yet.</p>';
+
+    detail.innerHTML = `
+      <div class="admin-detail-header">
+        <h3 style="font-family:var(--font-serif);font-size:1.2rem;color:var(--primary);margin:0 0 4px;">${email}</h3>
+        <p style="font-size:0.8rem;color:var(--on-surface-var);margin:0;">${(hist||[]).length} total sessions · ${(writing||[]).length} writing · ${(speaking||[]).length} speaking</p>
+      </div>
+      <div class="admin-tabs" style="display:flex;gap:8px;margin:1rem 0 0.75rem;">
+        <button class="btn btn-primary" style="font-size:0.8rem;padding:5px 14px;" onclick="showAdminSubTab('writing-${userId}')">Writing (${(writing||[]).length})</button>
+        <button class="btn" style="font-size:0.8rem;padding:5px 14px;" onclick="showAdminSubTab('speaking-${userId}')">Speaking (${(speaking||[]).length})</button>
+      </div>
+      <div id="admin-sub-writing-${userId}">${writingHtml}</div>
+      <div id="admin-sub-speaking-${userId}" style="display:none;">${speakingHtml}</div>
+    `;
+  } catch(e) {
+    detail.innerHTML = `<p style="color:#ef4444;">Error: ${e.message}</p>`;
+  }
+}
+
+function showAdminSubTab(key) {
+  const [type, userId] = key.split(/-(.+)/);
+  ['writing','speaking'].forEach(t => {
+    const el = document.getElementById(`admin-sub-${t}-${userId}`);
+    if (el) el.style.display = t === type ? 'block' : 'none';
+  });
+}
 
 // ── INIT ──────────────────────────────────────
 randomSpeakingPrompt();

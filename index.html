@@ -1816,6 +1816,8 @@ footer strong { color: var(--primary); }
       <span class="nav-group-label">Learn</span>
       <button class="nav-tab" data-section="vocab" onclick="showSection('vocab')">Vocabulary</button>
     </div>
+    <div class="nav-divider"></div>
+    <button id="nav-admin-tab" class="nav-tab" data-section="admin" onclick="showSection('admin');loadAdminPanel();" style="display:none;background:var(--primary);color:white;border-radius:6px;font-size:0.75rem;">Admin</button>
   </div>
   <button class="key-indicator" id="key-indicator" onclick="/* disabled */" title="API Key Settings">
     <span class="key-dot red" id="key-dot"></span>
@@ -2508,6 +2510,14 @@ footer strong { color: var(--primary); }
     <!-- User suggestions list -->
     <div id="syn-user-list"></div>
   </div>
+</section>
+
+<!-- ════════════════════ ADMIN SECTION ════════════════════ -->
+<section id="admin" class="section" style="display:none;">
+  <span class="section-eyebrow">Admin</span>
+  <p class="section-title">Student Overview</p>
+  <p class="section-sub">View all registered students, their scores, essays, and speaking samples.</p>
+  <div id="admin-panel"></div>
 </section>
 
 <!-- CHATBOT TOGGLE BUTTON -->
