@@ -4065,7 +4065,12 @@ deleteSpeakingSample = function(id) {
 };
 
 // ══════════════════════════════════════════════
-// ADMIN PANEL
+// ADMIN PANEL — only accessible to ADMIN_EMAIL
+// Three layers of protection:
+//   1. nav-admin-tab button is display:none for all non-admins
+//   2. loadAdminPanel() returns immediately if not admin
+//   3. Supabase RLS policies block DB queries for non-admins
+// Any other user who somehow navigates here sees a blank page.
 // ══════════════════════════════════════════════
 let _adminSelectedUser = null;
 
@@ -4073,52 +4078,103 @@ async function loadAdminPanel() {
   if (!_currentUser || _currentUser.email?.toLowerCase().trim() !== ADMIN_EMAIL.toLowerCase().trim()) return;
   const panel = document.getElementById('admin-panel');
   if (!panel) return;
-  panel.innerHTML = '<p style="color:var(--on-surface-var);padding:2rem;">Loading students…</p>';
+  panel.innerHTML = `<div style="padding:2rem;color:var(--on-surface-var);display:flex;align-items:center;gap:10px;"><span style="font-size:1.2rem;">⏳</span> Loading students…</div>`;
 
   try {
-    const { data: profiles, error } = await _sb.from('user_profiles').select('*').order('last_seen', { ascending: false });
+    const [{ data: profiles, error }, { data: hist }] = await Promise.all([
+      _sb.from('user_profiles').select('*').order('last_seen', { ascending: false }),
+      _sb.from('ielts_history').select('user_id, band, type')
+    ]);
     if (error) throw error;
-    if (!profiles || profiles.length === 0) {
-      panel.innerHTML = '<p style="color:var(--on-surface-var);padding:2rem;">No students have signed up yet.</p>';
-      return;
-    }
 
-    // Fetch summary counts per user from history
-    const { data: hist } = await _sb.from('ielts_history').select('user_id, band');
     const histMap = {};
     (hist || []).forEach(r => {
-      if (!histMap[r.user_id]) histMap[r.user_id] = { count: 0, total: 0 };
+      if (!histMap[r.user_id]) histMap[r.user_id] = { count: 0, total: 0, writing: 0, speaking: 0 };
       histMap[r.user_id].count++;
       histMap[r.user_id].total += parseFloat(r.band) || 0;
+      if ((r.type||'').toLowerCase().includes('writing')) histMap[r.user_id].writing++;
+      if ((r.type||'').toLowerCase().includes('speaking')) histMap[r.user_id].speaking++;
     });
 
+    const students = (profiles || []).filter(p => p.email?.toLowerCase().trim() !== ADMIN_EMAIL.toLowerCase().trim());
+    const meProfile = (profiles || []).find(p => p.email?.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim());
+
     panel.innerHTML = `
-      <div class="admin-header">
-        <h2 style="font-family:var(--font-serif);font-size:1.4rem;color:var(--primary);margin:0;">Students <span style="font-size:0.9rem;font-weight:400;color:var(--on-surface-var);">(${profiles.length})</span></h2>
-        <p style="font-size:0.82rem;color:var(--on-surface-var);margin:4px 0 0;">Click any student to view their data.</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-family:var(--font-serif);font-size:1.6rem;font-weight:700;color:var(--primary);">
+            Student Overview
+            <span style="font-size:1rem;font-weight:400;color:var(--on-surface-var);margin-left:8px;">${students.length} student${students.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div style="font-size:0.82rem;color:var(--on-surface-var);margin-top:2px;">Click a student to view their essays, speaking samples and scores.</div>
+        </div>
+        <button onclick="loadAdminPanel()" style="background:var(--surface-low);border:1px solid var(--outline);border-radius:8px;padding:7px 16px;font-size:0.82rem;cursor:pointer;color:var(--on-surface);">↻ Refresh</button>
       </div>
-      <div class="admin-student-list">
-        ${profiles.map(p => {
-          const s = histMap[p.user_id] || { count: 0, total: 0 };
-          const avg = s.count > 0 ? (s.total / s.count).toFixed(1) : '—';
-          const lastSeen = p.last_seen ? new Date(p.last_seen).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '—';
-          const isMe = p.email?.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
-          return `<div class="admin-student-row ${isMe ? 'admin-me' : ''}" onclick="loadStudentData('${p.user_id}','${p.email}')">
-            <div class="admin-student-info">
-              <span class="admin-student-email">${p.email}${isMe ? ' <span class="admin-badge">you</span>' : ''}</span>
-              <span class="admin-student-meta">Last active: ${lastSeen}</span>
+
+      ${students.length === 0 ? `
+        <div style="background:var(--surface-low);border-radius:12px;padding:3rem;text-align:center;color:var(--on-surface-var);">
+          <div style="font-size:2rem;margin-bottom:8px;">👩‍🎓</div>
+          <div style="font-size:1rem;font-weight:600;color:var(--on-surface);">No students yet</div>
+          <div style="font-size:0.85rem;margin-top:4px;">Students will appear here once they create an account and log in.</div>
+        </div>` : `
+      <div style="display:grid;gap:12px;">
+        ${students.map(p => {
+          const s = histMap[p.user_id] || { count: 0, total: 0, writing: 0, speaking: 0 };
+          const avg = s.count > 0 ? (s.total / s.count).toFixed(1) : null;
+          const lastSeen = p.last_seen ? new Date(p.last_seen).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : 'Never';
+          const initials = (p.email||'?').substring(0,2).toUpperCase();
+          const bandColor = avg ? (avg >= 7.5 ? '#16a34a' : avg >= 6 ? '#d97706' : '#dc2626') : 'var(--on-surface-var)';
+          return `
+          <div style="background:white;border:1px solid var(--outline-low,#e5e7eb);border-radius:14px;padding:1.1rem 1.4rem;display:flex;align-items:center;gap:14px;cursor:pointer;transition:box-shadow 0.15s,border-color 0.15s;"
+               onmouseover="this.style.boxShadow='0 4px 16px rgba(0,52,97,0.10)';this.style.borderColor='var(--primary)'"
+               onmouseout="this.style.boxShadow='none';this.style.borderColor='var(--outline-low,#e5e7eb)'"
+               onclick="loadStudentData('${p.user_id}','${p.email}')">
+            <div style="width:44px;height:44px;border-radius:50%;background:var(--primary);color:white;font-weight:700;font-size:1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initials}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:600;font-size:0.95rem;color:var(--on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.email}</div>
+              <div style="font-size:0.78rem;color:var(--on-surface-var);margin-top:2px;">Last active: ${lastSeen}</div>
             </div>
-            <div class="admin-student-stats">
-              <span class="admin-stat"><strong>${s.count}</strong> sessions</span>
-              <span class="admin-stat">Avg band <strong>${avg}</strong></span>
+            <div style="display:flex;gap:16px;align-items:center;flex-shrink:0;">
+              <div style="text-align:center;">
+                <div style="font-size:1.2rem;font-weight:700;color:${bandColor};">${avg || '—'}</div>
+                <div style="font-size:0.7rem;color:var(--on-surface-var);">avg band</div>
+              </div>
+              <div style="text-align:center;">
+                <div style="font-size:1.1rem;font-weight:700;color:var(--on-surface);">${s.writing}</div>
+                <div style="font-size:0.7rem;color:var(--on-surface-var);">writing</div>
+              </div>
+              <div style="text-align:center;">
+                <div style="font-size:1.1rem;font-weight:700;color:var(--on-surface);">${s.speaking}</div>
+                <div style="font-size:0.7rem;color:var(--on-surface-var);">speaking</div>
+              </div>
+              <button onclick="event.stopPropagation();confirmDeleteStudent('${p.user_id}','${p.email}')"
+                style="background:#fee2e2;color:#dc2626;border:none;border-radius:8px;padding:6px 12px;font-size:0.76rem;font-weight:600;cursor:pointer;">🗑 Delete</button>
             </div>
           </div>`;
         }).join('')}
-      </div>
-      <div id="admin-student-detail" style="margin-top:1.5rem;"></div>
+      </div>`}
+      <div id="admin-student-detail" style="margin-top:2rem;"></div>
     `;
   } catch(e) {
-    panel.innerHTML = `<p style="color:#ef4444;padding:2rem;">Error loading students: ${e.message}</p>`;
+    panel.innerHTML = `<div style="color:#ef4444;padding:2rem;background:#fee2e2;border-radius:12px;">Error loading students: ${e.message}</div>`;
+  }
+}
+
+async function confirmDeleteStudent(userId, email) {
+  const confirmed = window.confirm(`Delete all data for ${email}?\n\nThis removes all their essays, speaking samples, scores and vocabulary. Their login account remains but all progress is erased.\n\nThis cannot be undone.`);
+  if (!confirmed) return;
+  try {
+    await Promise.all([
+      _sb.from('ielts_writing_samples').delete().eq('user_id', userId),
+      _sb.from('ielts_speaking_samples').delete().eq('user_id', userId),
+      _sb.from('ielts_history').delete().eq('user_id', userId),
+      _sb.from('ielts_vocab').delete().eq('user_id', userId),
+      _sb.from('user_profiles').delete().eq('user_id', userId),
+    ]);
+    alert(`✓ All data for ${email} has been deleted.`);
+    loadAdminPanel();
+  } catch(e) {
+    alert(`Error deleting student data: ${e.message}`);
   }
 }
 
@@ -4126,64 +4182,76 @@ async function loadStudentData(userId, email) {
   _adminSelectedUser = userId;
   const detail = document.getElementById('admin-student-detail');
   if (!detail) return;
-  detail.innerHTML = `<p style="color:var(--on-surface-var);padding:1rem 0;">Loading data for ${email}…</p>`;
+  detail.innerHTML = `<div style="padding:1.5rem;color:var(--on-surface-var);display:flex;align-items:center;gap:10px;"><span>⏳</span> Loading data for <strong>${email}</strong>…</div>`;
 
   try {
-    const [{ data: writing }, { data: speaking }, { data: hist }] = await Promise.all([
+    const [{ data: writing }, { data: speaking }] = await Promise.all([
       _sb.from('ielts_writing_samples').select('*').eq('user_id', userId).order('date', { ascending: false }),
       _sb.from('ielts_speaking_samples').select('*').eq('user_id', userId).order('date', { ascending: false }),
-      _sb.from('ielts_history').select('*').eq('user_id', userId).order('date', { ascending: false }),
     ]);
 
     const fmtDate = d => d ? new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '—';
-    const bandClass = b => b >= 7.5 ? 'band-high' : b >= 6 ? 'band-mid' : 'band-low';
+    const bandBg = b => b >= 7.5 ? '#dcfce7' : b >= 6 ? '#fef9c3' : '#fee2e2';
+    const bandFg = b => b >= 7.5 ? '#16a34a' : b >= 6 ? '#b45309' : '#dc2626';
 
-    const writingHtml = writing && writing.length > 0 ? writing.map(w => `
-      <div class="admin-sample-card">
-        <div class="admin-sample-header">
-          <span class="admin-sample-type">${w.type || 'Writing'}</span>
-          <span class="crit-score ${bandClass(w.band)}" style="font-size:1.1rem;font-weight:700;">Band ${w.band}</span>
-          <span class="admin-sample-date">${fmtDate(w.date)}</span>
+    const sampleCard = (item, type) => `
+      <div style="background:white;border:1px solid var(--outline-low,#e5e7eb);border-radius:12px;padding:1.1rem 1.2rem;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+          <span style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--on-surface-var);background:var(--surface-low);padding:2px 8px;border-radius:4px;">${item.type || type}</span>
+          <span style="background:${bandBg(item.band)};color:${bandFg(item.band)};font-weight:700;font-size:0.95rem;padding:2px 10px;border-radius:6px;">Band ${item.band}</span>
+          <span style="font-size:0.78rem;color:var(--on-surface-var);margin-left:auto;">${fmtDate(item.date)}</span>
         </div>
-        ${w.prompt ? `<p class="admin-sample-prompt">${w.prompt.substring(0, 120)}${w.prompt.length > 120 ? '…' : ''}</p>` : ''}
-        ${w.essay ? `<details class="admin-essay-toggle"><summary>View essay</summary><p class="admin-essay-text">${w.essay.replace(/\n/g,'<br>')}</p></details>` : ''}
-        ${w.overall_comment ? `<p class="admin-comment">${w.overall_comment}</p>` : ''}
-      </div>`).join('') : '<p style="color:var(--on-surface-var);font-size:0.85rem;">No writing samples yet.</p>';
+        ${item.prompt ? `<p style="font-size:0.82rem;color:var(--on-surface-var);margin:0 0 8px;font-style:italic;">"${(item.prompt||'').substring(0,140)}${(item.prompt||'').length>140?'…':''}"</p>` : ''}
+        ${item.overall_comment ? `<p style="font-size:0.85rem;color:var(--on-surface);margin:0 0 8px;line-height:1.5;">${item.overall_comment}</p>` : ''}
+        ${(item.essay||item.transcript) ? `<details style="margin-top:6px;"><summary style="font-size:0.8rem;color:var(--primary);cursor:pointer;font-weight:600;">View ${type === 'Writing' ? 'essay' : 'transcript'}</summary><p style="font-size:0.83rem;line-height:1.7;color:var(--on-surface);margin:8px 0 0;white-space:pre-wrap;">${(item.essay||item.transcript||'').replace(/</g,'&lt;')}</p></details>` : ''}
+      </div>`;
 
-    const speakingHtml = speaking && speaking.length > 0 ? speaking.map(s => `
-      <div class="admin-sample-card">
-        <div class="admin-sample-header">
-          <span class="admin-sample-type">${s.type || 'Speaking'}</span>
-          <span class="crit-score ${bandClass(s.band)}" style="font-size:1.1rem;font-weight:700;">Band ${s.band}</span>
-          <span class="admin-sample-date">${fmtDate(s.date)}</span>
-        </div>
-        ${s.prompt ? `<p class="admin-sample-prompt">${s.prompt.substring(0, 120)}${s.prompt.length > 120 ? '…' : ''}</p>` : ''}
-        ${s.transcript ? `<details class="admin-essay-toggle"><summary>View transcript</summary><p class="admin-essay-text">${s.transcript.replace(/\n/g,'<br>')}</p></details>` : ''}
-        ${s.overall_comment ? `<p class="admin-comment">${s.overall_comment}</p>` : ''}
-      </div>`).join('') : '<p style="color:var(--on-surface-var);font-size:0.85rem;">No speaking samples yet.</p>';
+    const writingHtml = (writing||[]).length > 0
+      ? (writing||[]).map(w => sampleCard(w, 'Writing')).join('')
+      : `<div style="padding:1.5rem;text-align:center;color:var(--on-surface-var);background:var(--surface-low);border-radius:10px;font-size:0.87rem;">No writing samples yet.</div>`;
 
+    const speakingHtml = (speaking||[]).length > 0
+      ? (speaking||[]).map(s => sampleCard(s, 'Speaking')).join('')
+      : `<div style="padding:1.5rem;text-align:center;color:var(--on-surface-var);background:var(--surface-low);border-radius:10px;font-size:0.87rem;">No speaking samples yet.</div>`;
+
+    const initials = (email||'?').substring(0,2).toUpperCase();
     detail.innerHTML = `
-      <div class="admin-detail-header">
-        <h3 style="font-family:var(--font-serif);font-size:1.2rem;color:var(--primary);margin:0 0 4px;">${email}</h3>
-        <p style="font-size:0.8rem;color:var(--on-surface-var);margin:0;">${(hist||[]).length} total sessions · ${(writing||[]).length} writing · ${(speaking||[]).length} speaking</p>
+      <div style="background:var(--primary);color:white;border-radius:14px;padding:1.2rem 1.5rem;margin-bottom:1.2rem;display:flex;align-items:center;gap:14px;">
+        <div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.2);font-weight:700;font-size:1.1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initials}</div>
+        <div>
+          <div style="font-weight:700;font-size:1rem;">${email}</div>
+          <div style="font-size:0.8rem;opacity:0.8;margin-top:2px;">${(writing||[]).length} writing sessions · ${(speaking||[]).length} speaking sessions</div>
+        </div>
+        <button onclick="loadAdminPanel()" style="margin-left:auto;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.3);border-radius:8px;padding:6px 14px;font-size:0.8rem;cursor:pointer;">← Back</button>
       </div>
-      <div class="admin-tabs" style="display:flex;gap:8px;margin:1rem 0 0.75rem;">
-        <button class="btn btn-primary" style="font-size:0.8rem;padding:5px 14px;" onclick="showAdminSubTab('writing-${userId}')">Writing (${(writing||[]).length})</button>
-        <button class="btn" style="font-size:0.8rem;padding:5px 14px;" onclick="showAdminSubTab('speaking-${userId}')">Speaking (${(speaking||[]).length})</button>
+      <div style="display:flex;gap:8px;margin-bottom:1rem;" id="admin-subtabs-${userId}">
+        <button id="admin-btn-writing-${userId}" onclick="showAdminSubTab('writing','${userId}')"
+          style="padding:8px 18px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;background:var(--primary);color:white;border:none;">
+          ✍️ Writing (${(writing||[]).length})
+        </button>
+        <button id="admin-btn-speaking-${userId}" onclick="showAdminSubTab('speaking','${userId}')"
+          style="padding:8px 18px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;background:var(--surface-low);color:var(--on-surface);border:1px solid var(--outline);">
+          🎤 Speaking (${(speaking||[]).length})
+        </button>
       </div>
       <div id="admin-sub-writing-${userId}">${writingHtml}</div>
       <div id="admin-sub-speaking-${userId}" style="display:none;">${speakingHtml}</div>
     `;
   } catch(e) {
-    detail.innerHTML = `<p style="color:#ef4444;">Error: ${e.message}</p>`;
+    detail.innerHTML = `<div style="color:#ef4444;padding:1rem;background:#fee2e2;border-radius:10px;">Error: ${e.message}</div>`;
   }
 }
 
-function showAdminSubTab(key) {
-  const [type, userId] = key.split(/-(.+)/);
+function showAdminSubTab(type, userId) {
   ['writing','speaking'].forEach(t => {
-    const el = document.getElementById(`admin-sub-${t}-${userId}`);
-    if (el) el.style.display = t === type ? 'block' : 'none';
+    const panel = document.getElementById(`admin-sub-${t}-${userId}`);
+    const btn = document.getElementById(`admin-btn-${t}-${userId}`);
+    if (panel) panel.style.display = t === type ? 'block' : 'none';
+    if (btn) {
+      btn.style.background = t === type ? 'var(--primary)' : 'var(--surface-low)';
+      btn.style.color = t === type ? 'white' : 'var(--on-surface)';
+      btn.style.border = t === type ? 'none' : '1px solid var(--outline)';
+    }
   });
 }
 
