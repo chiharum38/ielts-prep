@@ -3937,7 +3937,7 @@ _sb.auth.onAuthStateChange(async (event, session) => {
 
     // Show admin tab if this is the admin
     const adminTab = document.getElementById('nav-admin-tab');
-    if (adminTab) adminTab.style.display = session.user.email === ADMIN_EMAIL ? 'inline-flex' : 'none';
+    if (adminTab) adminTab.style.display = session.user.email?.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim() ? 'inline-flex' : 'none';
 
     // Load user data into localStorage for compatibility
     await syncFromCloud();
@@ -3952,6 +3952,17 @@ _sb.auth.onAuthStateChange(async (event, session) => {
     if (adminTab) adminTab.style.display = 'none';
   }
 });
+
+// ── Admin tab fallback: re-check after DOM is fully settled ──
+function refreshAdminTab() {
+  const adminTab = document.getElementById('nav-admin-tab');
+  if (!adminTab) return;
+  const email = _currentUser?.email?.toLowerCase().trim();
+  const adminEmail = ADMIN_EMAIL?.toLowerCase().trim();
+  adminTab.style.display = (email && email === adminEmail) ? 'inline-flex' : 'none';
+}
+// Belt-and-suspenders: also check 1 second after page load
+window.addEventListener('load', () => setTimeout(refreshAdminTab, 1000));
 
 // ── Cloud Sync ─────────────────────────────────
 async function syncFromCloud() {
